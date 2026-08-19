@@ -7,15 +7,15 @@
 #include "../log/Log.hpp"
 #include "../common/Util.hpp"
 
-namespace oj_complier
+namespace oj_compiler
 {
     using namespace LogModule;
 
-    class Complier
+    class Compiler
     {
     public:
         
-        static bool Complie(const std::string& filename)
+        static bool Compile(const std::string& filename)
         {
             pid_t pid = fork();
             if(pid == 0)

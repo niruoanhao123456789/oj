@@ -1,8 +1,10 @@
-#include "complier.hpp"
+#include "compiler.hpp"
+#include "runner.hpp"
 #include "../log/Log.hpp"
 
 using namespace LogModule;
-using namespace oj_complier;
+using namespace oj_compiler;
+using namespace oj_runner;
 
 int main()
 {
@@ -13,7 +15,8 @@ int main()
     Logger::ptr logger = builder->Build();
 
     std::string file = "code";
-    Complier::Complie(file);
+    Compiler::Compile(file);
+    Runner::Run(file);
 
     return 0;
 }
