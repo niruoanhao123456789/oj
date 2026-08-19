@@ -5,6 +5,7 @@
 #include<cassert>
 #include<thread>
 #include<functional>
+#include<atomic>
 #include"Buffer.hpp"
 
 namespace LogModule
@@ -37,6 +38,8 @@ namespace LogModule
         {
             _isrunning = false;
             _cond_con.notify_all();
+            if(_thread.joinable())
+                _thread.join();
         }
 
         void Push(const char* data, size_t len)
@@ -83,7 +86,7 @@ namespace LogModule
 
     private:
         AsyncStatus _status;
-        bool _isrunning;
+        std::atomic<bool> _isrunning;
         AsyncBuffer _pro_buffer;
         AsyncBuffer _con_buffer;
         std::mutex _lock;

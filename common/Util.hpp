@@ -35,6 +35,11 @@ namespace oj_util
         {
             return AddSuffix(file_name, ".compile_error");
         }
+
+        static const std::string Stderror(const std::string &file_name)
+        {
+            return AddSuffix(file_name, ".stderr");
+        }
     };
 
     class File

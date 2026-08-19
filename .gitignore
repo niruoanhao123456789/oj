@@ -68,5 +68,5 @@ vcpkg_installed/
 Testing/
 .cache/
 
-# logs
-*.log
+# temp
+compile_server/temp/
