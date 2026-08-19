@@ -31,14 +31,24 @@ namespace oj_util
             return AddSuffix(filename,".exe");
         }
 
-        static const std::string CompilerError(const std::string &file_name)
+        static const std::string CompilerError(const std::string &filename)
         {
-            return AddSuffix(file_name, ".compile_error");
+            return AddSuffix(filename, ".compile_error");
         }
 
-        static const std::string Stderror(const std::string &file_name)
+        // 运行时需要的临时文件
+        static const std::string Stdin(const std::string &filename)
         {
-            return AddSuffix(file_name, ".stderr");
+            return AddSuffix(filename, ".stdin");
+        }
+        static const std::string Stdout(const std::string &filename)
+        {
+            return AddSuffix(filename, ".stdout");
+        }
+        // 构建该程序对应的标准错误完整的路径+后缀名
+        static const std::string Stderr(const std::string &filename)
+        {
+            return AddSuffix(filename, ".stderr");
         }
     };
 

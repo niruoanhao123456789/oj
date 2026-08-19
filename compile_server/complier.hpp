@@ -24,7 +24,7 @@ namespace oj_complier
                 int errfd = open(oj_util::Path::CompilerError(filename).c_str(), O_CREAT | O_WRONLY, 0644);
                 if(errfd<0)
                 {
-                    LOG_WARNNING(GetLogger("Async_Loggger"),"%s","errfd failed!");
+                    LOG_WARNNING(GetLogger("Async_Loggger"),"%s","open errfd failed!");
                     exit(1);
                 }
                 //重定向标准错误到errfd
