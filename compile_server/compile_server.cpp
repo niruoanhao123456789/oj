@@ -1,7 +1,9 @@
 #include <jsoncpp/json/json.h>
 #include "../common/log/Log.hpp"
+#include "compile_run.hpp"
 
 using namespace LogModule;
+using namespace oj_compile_run;
 
 // 编译服务存在被多个用户进行请求
 int main()

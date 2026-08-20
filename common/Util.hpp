@@ -63,5 +63,20 @@ namespace oj_util
             
             return false;
         }
+
+        static const std::string UniqueFileName()
+        {
+
+        }
+
+        static bool WriteFile(const std::string& dest, const std::string& src)
+        {
+
+        }
+
+        static bool ReadFile(std::string* dest, const std::string& src,bool keep = false)
+        {
+
+        }
     };
 }
