@@ -1,11 +1,9 @@
-#include "compiler.hpp"
-#include "runner.hpp"
-#include "../log/Log.hpp"
+#include <jsoncpp/json/json.h>
+#include "../common/log/Log.hpp"
 
 using namespace LogModule;
-using namespace oj_compiler;
-using namespace oj_runner;
 
+// 编译服务存在被多个用户进行请求
 int main()
 {
     std::unique_ptr<LoggerBuilder> builder = std::make_unique<GobalLoggerBuilder>();
@@ -14,9 +12,7 @@ int main()
     builder->BUildLoggerSink<RollByTimeSink>("./logfiles/",TimeGap::GAP_DAY);
     Logger::ptr logger = builder->Build();
 
-    std::string file = "code";
-    Compiler::Compile(file);
-    Runner::Run(file);
+    
 
     return 0;
 }

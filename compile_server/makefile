@@ -1,8 +1,10 @@
-HPP = complie_run.hpp complier.hpp runner.hpp ../log/*.hpp ../common/Util.hpp
+HPP = compile_run.hpp compiler.hpp runner.hpp ../log/*.hpp ../common/Util.hpp
+TempFile = ./temp/*.exe ./temp/*stdin ./temp/*.stdout ./temp/*.stderr ./temp/*.compile_error
 
-complie_server:complie_server.cpp $(HPP)
-	g++ -o $@ $< -std=c++20
+compile_server:compile_server.cpp $(HPP)
+	g++ -o $@ $< -std=c++20 -ljsoncpp
 
 .PHONY:
 clean:
-	rm -f complie_server
+	@ rm -f compile_server
+	@ rm -f $(TempFile)

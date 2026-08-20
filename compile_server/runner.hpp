@@ -4,10 +4,11 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/resource.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include "../common/Util.hpp"
-#include "../log/Log.hpp"
+#include "../common/log/Log.hpp"
 
 namespace oj_runner
 {
@@ -17,12 +18,27 @@ namespace oj_runner
     class Runner
     {
     public:
+        // 
+        static void SetResoureLimit(size_t cpu_limit, size_t mem_limit)
+        {
+            struct rlimit cpu_rlimit;
+            cpu_rlimit.rlim_max = RLIM_INFINITY;
+            cpu_rlimit.rlim_cur = cpu_limit;
+            setrlimit(RLIMIT_CPU, &cpu_rlimit);
+
+            struct rlimit mem_rlimit;
+            mem_rlimit.rlim_max = RLIM_INFINITY;
+            mem_rlimit.rlim_cur = mem_limit * 1024 * 1024; //转化成为MB
+            setrlimit(RLIMIT_AS, &mem_rlimit);
+        }
+
+
         /* 返回类型：int
         *  > 0  存在异常退出
         *  == 0 正常退出
         *  < 0  内部异常
         */
-        static int Run(const std::string& filename)
+        static int Run(const std::string& filename, size_t cpu_limit, size_t mem_limit)
         {
             // Run 只需关心程序是否运行完，结果是否正确交予上层
             const std::string _execute = Path::Exe(filename);
@@ -48,6 +64,7 @@ namespace oj_runner
                 dup2(_stdout_fd, 1);
                 dup2(_stderr_fd, 2);
 
+                SetResoureLimit(cpu_limit,mem_limit);
                 execl(_execute.c_str(),_execute.c_str(),nullptr);
 
                 LOG_ERROR(GetLogger("Async_Loggger"),"%s","execl failed!");

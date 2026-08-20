@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <fcntl.h>
-#include "../log/Log.hpp"
+#include "../common/log/Log.hpp"
 #include "../common/Util.hpp"
 
 namespace oj_compiler
