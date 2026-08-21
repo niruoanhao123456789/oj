@@ -24,7 +24,7 @@ namespace oj_compile_run
             
             const std::string _execute = Path::Exe(filename);
             if(File::IsFileExists(_src))
-                unlink(_src.c_str());
+                unlink(_execute.c_str());
             
             const std::string _stderr = Path::Stderr(filename);
             if(File::IsFileExists(_stderr))

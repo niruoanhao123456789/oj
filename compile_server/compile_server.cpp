@@ -5,36 +5,41 @@
 
 using namespace LogModule;
 using namespace oj_compile_run;
+using namespace httplib;
+
+void Usage(std::string proc)
+{
+    std::cerr << "Usage: " << "\n\t" << proc << " port" << std::endl;
+}
 
 // 编译服务存在被多个用户进行请求
-int main()
+int main(int argc, char *argv[])
 {
+    if(argc != 2){
+        Usage(argv[0]);
+        return 1;
+    }
+
     std::unique_ptr<LoggerBuilder> builder = std::make_unique<GobalLoggerBuilder>();
     builder->BuildLoggerName("Async_Loggger");
     builder->BuildLoggerType(LoggerType::LOGGER_ASYNC);
     builder->BUildLoggerSink<RollByTimeSink>("./logfiles/",TimeGap::GAP_DAY);
-    Logger::ptr logger = builder->Build();
+    LogModule::Logger::ptr logger = builder->Build();
 
-    // std::string in_json;
-    // Json::Value in_value;
-    // in_value["code"] = R"(#include<iostream>
-    // int main()
-    // {
-    //     while(1);
-    //     return 0;
-    // })";
-    
-    // in_value["input"] = "";
-    // in_value["cpu_limit"] = 1; // s
-    // in_value["mem_limit"] = 30;
+    httplib::Server svr;
 
-    // Json::FastWriter writer;
-    // in_json = writer.write(in_value);
+    svr.Post("/compile_and_run",[](const Request& req,Response& res){
+        // 用户请求的服务正文是我们想要的json string
+        std::string in_json = req.body;
+        std::string out_json;
+        if(!in_json.empty())
+        {
+            CompileAndRun::Start(in_json,&out_json);
+            res.set_content(out_json,"application/json;charset=utf-8");
+        }
+    });
 
-    // std::string out_json;
-    // CompileAndRun::Start(in_json,&out_json);
-
-    // std::cout<<out_json<<std::endl;
+    svr.listen("0.0.0.0",atoi(argv[1]));
 
     return 0;
 }
