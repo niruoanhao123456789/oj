@@ -1,6 +1,9 @@
 #pragma once
 #include <iostream>
 #include <string>
+#include <atomic>
+#include <cassert>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -52,6 +55,24 @@ namespace oj_util
         }
     };
 
+    class Time
+    {
+    public:
+        static const std::string GetTimeStamp()
+        {
+            struct timeval tv;
+            gettimeofday(&tv,nullptr);
+            return std::to_string(tv.tv_sec);
+        }
+
+        static const std::string GetTimeMs()
+        {
+            struct timeval tv;
+            gettimeofday(&tv,nullptr);
+            return std::to_string(tv.tv_sec * 1000 + tv.tv_usec / 1000);
+        }
+    };
+
     class File
     {
     public:
@@ -66,17 +87,38 @@ namespace oj_util
 
         static const std::string UniqueFileName()
         {
-
+            static std::atomic_uint id(0);
+            ++id;
+            // 毫秒级时间戳+原子性递增唯一值: 来保证唯一性
+            std::string ms = Time::GetTimeMs();
+            std::string uniq_id = std::to_string(id);
+            return ms + "_" + uniq_id;
         }
 
-        static bool WriteFile(const std::string& dest, const std::string& src)
+        static void WriteFile(const std::string& dest, const std::string& src)
         {
-
+            std::ofstream out(dest);
+            assert(out.is_open());
+            out.write(src.c_str(),src.size());
+            out.close();
         }
 
-        static bool ReadFile(std::string* dest, const std::string& src,bool keep = false)
+        static void ReadFile(std::string* dest, const std::string& src,bool keep = false)
         {
+            dest->clear();
 
+            std::ifstream in(src);
+            assert(in.is_open());
+
+            std::string line;
+            // getline:不保存行分割符,有些时候需要保留\n,
+            // getline内部重载了强制类型转化
+            while(std::getline(in,line))
+            {
+                (*dest) += line;
+                (*dest) += (keep ? "\n" : "");
+            }
+            in.close();
         }
     };
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <jsoncpp/json/json.h>
+#include <unistd.h>
 #include "../common/Util.hpp"
 #include "compiler.hpp"
 #include "runner.hpp"
@@ -10,12 +11,54 @@ namespace oj_compile_run
     using namespace oj_compiler;
     using namespace oj_runner;
     using namespace LogModule;
+    using namespace oj_util;
 
     class CompileAndRun
     {
     public:
+        static void RemoveTempFiles(const std::string& filename)
+        {  
+            const std::string _src = Path::Src(filename);
+            if(File::IsFileExists(_src))
+                unlink(_src.c_str());
+            
+            const std::string _execute = Path::Exe(filename);
+            if(File::IsFileExists(_src))
+                unlink(_src.c_str());
+            
+            const std::string _stderr = Path::Stderr(filename);
+            if(File::IsFileExists(_stderr))
+                unlink(_stderr.c_str());
+            
+            const std::string _stdin = Path::Stdin(filename);
+            if(File::IsFileExists(_stdin))
+                unlink(_stdin.c_str());
+
+            const std::string _stdout = Path::Stdout(filename);
+            if(File::IsFileExists(_stdout))
+                unlink(_stdout.c_str());
+
+            const std::string _compile_err = Path::CompilerError(filename);
+            if(File::IsFileExists(_compile_err))
+                unlink(_compile_err.c_str());
+        }
+
         static std::string StatusToDesc(int status, const std::string &filename)
         {
+            std::string desc;
+            switch(status)
+            {
+                case 0: desc = "编译成功"; break;
+                case -1: desc = "提交代码为空"; break;
+                case -2: desc = "内部错误"; break;
+                case -3: oj_util::File::ReadFile(&desc,oj_util::Path::CompilerError(filename),true); break;
+                case SIGABRT: desc = "内存超过范围"; break;
+                case SIGXCPU: desc = "CPU使用超时"; break;
+                case SIGFPE: desc = "浮点数溢出"; break;
+                default: desc = "未知: " + filename; break;
+            }
+
+            return desc;
         }
 
         /*
@@ -67,11 +110,7 @@ namespace oj_compile_run
                 filename = oj_util::File::UniqueFileName();
 
                 // 形成临时src文件
-                if (!oj_util::File::WriteFile(oj_util::Path::Src(filename), code))
-                {
-                    status = -2; // 内部错误
-                    break;
-                }
+                oj_util::File::WriteFile(oj_util::Path::Src(filename), code);
 
                 if (!Compiler::Compile(filename))
                 {
@@ -116,6 +155,8 @@ namespace oj_compile_run
 
             Json::StyledWriter writer;
             *out_json = writer.write(out_value);
+
+            RemoveTempFiles(filename);
         }
     };
 }
