@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
     }
 
     std::unique_ptr<LoggerBuilder> builder = std::make_unique<GobalLoggerBuilder>();
-    builder->BuildLoggerName("Async_Loggger");
+    builder->BuildLoggerName("CompileRun_Loggger");
     builder->BuildLoggerType(LoggerType::LOGGER_ASYNC);
     builder->BUildLoggerSink<RollByTimeSink>("./logfiles/",TimeGap::GAP_DAY);
     LogModule::Logger::ptr logger = builder->Build();

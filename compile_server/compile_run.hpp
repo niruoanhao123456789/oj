@@ -2,6 +2,7 @@
 
 #include <jsoncpp/json/json.h>
 #include <unistd.h>
+#include <cassert>
 #include "../common/Util.hpp"
 #include "compiler.hpp"
 #include "runner.hpp"
@@ -82,6 +83,7 @@ namespace oj_compile_run
          */
         static void Start(const std::string &in_json, std::string *out_json)
         {
+            assert(out_json);
             Json::Value in_value;
             Json::Reader reader;
             reader.parse(in_json, in_value);

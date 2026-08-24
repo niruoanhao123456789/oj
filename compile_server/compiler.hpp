@@ -24,7 +24,7 @@ namespace oj_compiler
                 int errfd = open(oj_util::Path::CompilerError(filename).c_str(), O_CREAT | O_WRONLY, 0644);
                 if(errfd<0)
                 {
-                    LOG_WARNNING(GetLogger("Async_Loggger"),"%s","open errfd failed!");
+                    LOG_WARNNING(GetLogger("CompileRun_Loggger"),"%s","open errfd failed!");
                     exit(1);
                 }
                 //重定向标准错误到errfd
@@ -35,20 +35,20 @@ namespace oj_compiler
                 //g++ -o target src -std=c++11
                 execlp("g++","g++","-o",oj_util::Path::Exe(filename).c_str(),oj_util::Path::Src(filename).c_str(),"-std=c++20",nullptr);
 
-                LOG_ERROR(GetLogger("Async_Loggger"),"%s","g++ failed, maybe args wrong.");
+                LOG_ERROR(GetLogger("CompileRun_Loggger"),"%s","g++ failed, maybe args wrong.");
             }
             else if(pid < 0)
             {
-                LOG_ERROR(GetLogger("Async_Loggger"),"%s","fork error!");
+                LOG_ERROR(GetLogger("CompileRun_Loggger"),"%s","fork error!");
             }
 
             waitpid(pid,nullptr,0);
             if(oj_util::File::IsFileExists(oj_util::Path::Exe(filename)))
             {
-                LOG_INFOR(GetLogger("Async_Loggger"),"%s",(oj_util::Path::Src(filename)+" compilation succeed!").c_str());
+                LOG_INFOR(GetLogger("CompileRun_Loggger"),"%s",(oj_util::Path::Src(filename)+" compilation succeed!").c_str());
                 return true;
             }
-            LOG_ERROR(GetLogger("Async_Loggger"),"%s","compilation failed!");
+            LOG_ERROR(GetLogger("CompileRun_Loggger"),"%s","compilation failed!");
             return false;
         }
     };

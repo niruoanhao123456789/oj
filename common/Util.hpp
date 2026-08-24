@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <boost/algorithm/string.hpp>
 
 namespace oj_util
 {
@@ -119,6 +120,16 @@ namespace oj_util
                 (*dest) += (keep ? "\n" : "");
             }
             in.close();
+        }
+    };
+
+    class UtilString
+    {
+    public:
+        static void SplitString(const std::string& str,std::vector<std::string>* target, const std::string& sep = " ")
+        {
+            assert(target);
+            boost::split(*target,str,boost::is_any_of(sep),boost::algorithm::token_compress_on);
         }
     };
 }

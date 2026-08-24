@@ -53,7 +53,7 @@ namespace oj_runner
 
             if(_stdin_fd < 0 || _stdout_fd < 0 || _stderr_fd < 0)
             {
-                LOG_ERROR(GetLogger("Async_Loggger"),"%s","stdin, stdout or stderr open failed!");
+                LOG_ERROR(GetLogger("CompileRun_Loggger"),"%s","stdin, stdout or stderr open failed!");
                 return -1;
             }
 
@@ -67,7 +67,7 @@ namespace oj_runner
                 SetResoureLimit(cpu_limit,mem_limit);
                 execl(_execute.c_str(),_execute.c_str(),nullptr);
 
-                LOG_ERROR(GetLogger("Async_Loggger"),"%s","execl failed!");
+                LOG_ERROR(GetLogger("CompileRun_Loggger"),"%s","execl failed!");
                 exit(1);
             }
             else if(pid < 0)
@@ -75,7 +75,7 @@ namespace oj_runner
                 close(_stdin_fd);
                 close(_stdout_fd);
                 close(_stderr_fd);
-                LOG_ERROR(GetLogger("Async_Loggger"),"%s","fork failed!");
+                LOG_ERROR(GetLogger("CompileRun_Loggger"),"%s","fork failed!");
                 return -2;
             }
 
@@ -86,7 +86,7 @@ namespace oj_runner
             waitpid(pid,&status,0);
 
             // 如果程序运行异常，一定是因为因为收到了信号！
-            LOG_INFOR(GetLogger("Async_Loggger"),"%s%d","running finished! Singal: ",status & 0x7F);
+            LOG_INFOR(GetLogger("CompileRun_Loggger"),"%s%d","running finished! Singal: ",status & 0x7F);
             return status & 0x7F;
         }
     };
