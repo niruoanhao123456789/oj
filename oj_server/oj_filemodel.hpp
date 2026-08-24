@@ -104,7 +104,7 @@ namespace oj_filemodel
             in.close();
         }
 
-        void GetAllQuestions(std::vector<Question>* out)
+        void GetAllQuestions(std::vector<oj_filemodel::Question>* out)
         {
             assert(out);
             if(_questions.empty())
@@ -119,7 +119,7 @@ namespace oj_filemodel
             }
         }
 
-        void GetOneQuestion(const std::string& id,Question* q)
+        void GetOneQuestion(const std::string& id,oj_filemodel::Question* q)
         {
             assert(q);
             auto iter = _questions.find(id);

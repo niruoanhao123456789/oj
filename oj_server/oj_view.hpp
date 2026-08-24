@@ -13,7 +13,7 @@ namespace oj_view
     class View
     {
     public:
-        void AllExpandHtml(const std::vector<struct Question>& questions,std::string *html)
+        void AllExpandHtml(const std::vector<oj_filemodel::Question>& questions,std::string *html)
         {
             // 题目的编号 题目的标题 题目的难度
             // 推荐使用表格显示
