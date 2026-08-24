@@ -35,7 +35,17 @@ namespace oj_filemodel
                 LOG_WARNNING(GetLogger("oj_Logger"),"%s","the rank string is undefined!");
                 return Rank::UNKONW;
             }
+        }
 
+        const std::string RankToString() const
+        {
+            switch(_rank)
+            {
+                case EASY:      return "简单";
+                case NORMAL:    return "中等";
+                case DIFFICULT: return "困难";
+                default:        return "未知";
+            }
         }
 
         std::string _id;        // 题目编号，唯一
