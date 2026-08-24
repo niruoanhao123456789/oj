@@ -24,9 +24,9 @@ namespace oj_view
             for(const auto& q:questions)
             {
                 ctemplate::TemplateDictionary* sub = root.AddSectionDictionary("question_list");
-                root.SetValue("id",q._id);
-                root.SetValue("title",q._title);
-                root.SetValue("rank",q.RankToString());
+                sub->SetValue("id",q._id);
+                sub->SetValue("title",q._title);
+                sub->SetValue("rank",q.RankToString());
             }
 
             // 3、获取被渲染的html

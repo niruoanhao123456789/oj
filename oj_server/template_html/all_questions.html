@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>题目列表 - 在线OJ</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+        }
+        .header {
+            background: #2c3e50;
+            color: #fff;
+            padding: 20px 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .header h1 { font-size: 24px; font-weight: 500; }
+        .header nav a {
+            color: #fff;
+            text-decoration: none;
+            margin-left: 20px;
+            padding: 6px 14px;
+            border: 1px solid #fff;
+            border-radius: 4px;
+            transition: all .2s;
+        }
+        .header nav a:hover { background: #fff; color: #2c3e50; }
+        .container { max-width: 900px; margin: 40px auto; padding: 0 20px; }
+        .container h2 { margin-bottom: 20px; font-size: 22px; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 14px 20px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            background: #f8f9fa;
+            color: #555;
+            font-weight: 600;
+        }
+        tr:hover { background: #fafbfc; }
+        td a { color: #3498db; text-decoration: none; }
+        td a:hover { text-decoration: underline; }
+        .rank { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 13px; color: #fff; background: #2ecc71; }
+        .empty { text-align: center; color: #999; padding: 40px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>在线OJ</h1>
+        <nav><a href="/">首页</a></nav>
+    </div>
+
+    <div class="container">
+        <h2>题目列表</h2>
+        <table>
+            <tr>
+                <th>题号</th>
+                <th>题目</th>
+                <th>难度</th>
+            </tr>
+            {{#question_list}}
+            <tr>
+                <td><a href="/question/{{id}}">{{id}}</a></td>
+                <td><a href="/question/{{id}}">{{title}}</a></td>
+                <td><span class="rank">{{rank}}</span></td>
+            </tr>
+            {{/question_list}}
+        </table>
+    </div>
+</body>
+</html>

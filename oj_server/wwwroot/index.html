@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>在线OJ</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+        }
+        .header {
+            background: #2c3e50;
+            color: #fff;
+            padding: 20px 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .header h1 { font-size: 24px; font-weight: 500; }
+        .header nav a {
+            color: #fff;
+            text-decoration: none;
+            margin-left: 20px;
+            padding: 6px 14px;
+            border: 1px solid #fff;
+            border-radius: 4px;
+            transition: all .2s;
+        }
+        .header nav a:hover { background: #fff; color: #2c3e50; }
+        .hero {
+            text-align: center;
+            padding: 80px 20px;
+        }
+        .hero h2 { font-size: 32px; margin-bottom: 16px; }
+        .hero p { font-size: 16px; color: #666; margin-bottom: 32px; }
+        .hero .btn {
+            display: inline-block;
+            background: #3498db;
+            color: #fff;
+            padding: 12px 32px;
+            font-size: 18px;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: background .2s;
+        }
+        .hero .btn:hover { background: #2980b9; }
+        .footer {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            text-align: center;
+            padding: 16px;
+            color: #999;
+            font-size: 14px;
+            background: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>在线OJ</h1>
+        <nav><a href="/all_questions">题目列表</a></nav>
+    </div>
+
+    <div class="hero">
+        <h2>欢迎来到在线判题系统</h2>
+        <p>基于负载均衡的在线OJ，在线提交代码，立即获得评测结果</p>
+        <a class="btn" href="/all_questions">开始刷题</a>
+    </div>
+
+    <div class="footer">在线OJ &copy; 2026</div>
+</body>
+</html>
