@@ -1,8 +1,17 @@
 #include <iostream>
 #include <httplib.h>
+#include <signal.h>
 #include "../common/log/Log.hpp"
+#include "oj_control.hpp"
 
 using namespace httplib;
+
+static oj_control::Control* ctrl_ptr = nullptr;
+
+void Recovery(int signo)
+{
+    ctrl_ptr->RecoveryMachine();
+}
 
 int main()
 {
@@ -12,13 +21,18 @@ int main()
     builder->BUildLoggerSink<LogModule::RollByTimeSink>("./logfiles/",LogModule::TimeGap::GAP_DAY);
     LogModule::Logger::ptr logger = builder->Build();
 
+    signal(SIGQUIT, Recovery);
+
     // 处理用户路由服务功能
     Server svr;
 
-    // 获取所有的题目列表
-    svr.Get("/all_questions",[](const Request& req,Response& resp){
-        const std::string html;
+    oj_control::Control ctrl;
+    ctrl_ptr = &ctrl;
 
+    // 获取所有的题目列表
+    svr.Get("/all_questions",[&ctrl](const Request& req,Response& resp){
+        const std::string html;
+        ctrl.AllQuestions(&html);
         resp.set_content(html,"text/html; charset=utf-8");
     });
 

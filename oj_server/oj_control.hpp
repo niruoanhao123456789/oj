@@ -54,8 +54,28 @@ namespace oj_control
 
             return load;
         }
-        
 
+        void SetCompileServerIp(std::string& ip)
+        {
+            _compile_server_ip = ip;
+        }
+
+        void SetCompileServerPort(size_t port)
+        {
+            _compile_server_port = port;
+        }
+
+        void SetMachineLoad(size_t load)
+        {
+            _load = load;
+        }
+
+        void SetMutex(std::mutex* mutex)
+        {
+            _plock = mutex;
+        }
+        
+    private:
         std::string _compile_server_ip;
         size_t _compile_server_port;
         size_t _load;                       // 编译服务的负载
@@ -93,18 +113,97 @@ namespace oj_control
                 }
 
                 Machine machine;
-                machine._compile_server_ip = tokens[0];
-                machine._compile_server_port = std::atoll(tokens[1].c_str());
-                machine._load = 0;
-                machine._plock = new std::mutex();
+                machine.SetCompileServerIp(tokens[0]);
+                machine.SetCompileServerPort(std::atoll(tokens[1].c_str()));
+                machine.SetMachineLoad(0);
+                machine.SetMutex(new std::mutex());
             }
 
             in.close();
             return true;
         }
 
+        void SmartChoice(size_t* id,Machine** m)
+        {
+            // 1. 使用选择好的主机(更新该主机的负载)
+            // 2. 我们需要可能离线该主机
+            _lock.lock();
+            // 负载均衡的算法
+            // 1. 随机数+hash
+            // 2. 轮询+hash
+            size_t n = _online.size();
+            if(!n)
+            {
+                _lock.unlock();
+                LOG_FATAL(GetLogger("oj_Logger"),"%s","All machines are offline! Please check!");
+                return;
+            }
+            // 找到所有负载最小的机器
+            *id = _online[0];
+            *m = &_machines[_online[0]];
+            size_t min_load = _machines[_online[0]].GetLoad();
+            for(size_t i=0;i<n;i++)
+            {
+                size_t cur_load = _machines[_online[i]].GetLoad();
+                if(min_load > cur_load)
+                {
+                    min_load = cur_load;
+                    *id = _online[i];
+                    *m = &_machines[_online[i]];
+                }
+            }
+            _lock.unlock();
+        }
+
+        void OfflineMachine(size_t whichId)
+        {
+            _lock.lock();
+            for(auto iter = _online.begin();iter != _online.end(); ++iter)
+            {
+                if(*iter == whichId)
+                {
+                    _machines[whichId].ResetLoad();
+
+                    _online.erase(iter);
+                    _offline.emplace_back(whichId);
+
+                    break;
+                    // 在break之后，iter不在被使用，所以暂时不用担心其迭代器失效的问题
+                }
+            }
+            _lock.unlock();
+        }
+
+        void OnlineAllMachines()
+        {
+            _lock.lock();
+            _online.insert(_online.end(),_offline.begin(),_offline.end());
+            _lock.unlock();
+
+            LOG_INFOR(GetLogger("oj_Logger"),"%s","All machines are online");
+        }
+
+        // just for test
+        void ShowMachines()
+        {
+            _lock.lock();
+            std::cout << "当前在线主机列表: ";
+            for(auto &id : _online)
+            {
+                std::cout << id << " ";
+            }
+            std::cout << std::endl;
+            std::cout << "当前离线主机列表: ";
+            for(auto &id : _offline)
+            {
+                std::cout << id << " ";
+            }
+            std::cout << std::endl;
+            _lock.unlock();
+        }
+
     private:
-        std::vector<Machine> _Machine;
+        std::vector<Machine> _machines;
         std::vector<size_t> _online;
         std::vector<size_t> _offline;
         std::mutex _lock;
@@ -115,7 +214,7 @@ namespace oj_control
     public:
         void RecoveryMachine()
         {
-            _loadblance.OnlineMachine();
+            _loadblance.OnlineAllMachines();
         }
 
         //根据题目数据构建网页

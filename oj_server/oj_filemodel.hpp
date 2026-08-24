@@ -86,10 +86,10 @@ namespace oj_filemodel
                     continue;
                 }
 
-                Question q;
+                oj_filemodel::Question q;
                 q._id = tokens[0];
                 q._title = tokens[1];
-                q._rank = Question::StringToRank(tokens[2]);
+                q._rank = oj_filemodel::Question::StringToRank(tokens[2]);
                 q._cpu_limit = std::atoll(tokens[3].c_str());
                 q._mem_limit = std::atoll(tokens[4].c_str());
 
@@ -132,6 +132,6 @@ namespace oj_filemodel
         }
         
     private:
-        std::unordered_map<std::string,Question> _questions;
+        std::unordered_map<std::string,oj_filemodel::Question> _questions;
     };
 }

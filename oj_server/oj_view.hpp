@@ -36,7 +36,7 @@ namespace oj_view
             tpl->Expand(html,&root);
         }
 
-        void OneExpandHtml(const struct Question &q, std::string *html)
+        void OneExpandHtml(oj_filemodel::Question& q, std::string* html)
         {
             std::string src_html = template_path + "one_question.html";
 
