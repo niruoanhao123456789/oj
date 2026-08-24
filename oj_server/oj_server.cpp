@@ -31,7 +31,7 @@ int main()
 
     // 获取所有的题目列表
     svr.Get("/all_questions",[&ctrl](const Request& req,Response& resp){
-        const std::string html;
+        std::string html;
         ctrl.AllQuestions(&html);
         resp.set_content(html,"text/html; charset=utf-8");
     });

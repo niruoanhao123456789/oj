@@ -5,6 +5,7 @@
 #include <thread>
 #include <mutex>
 #include <fstream>
+#include <jsoncpp/json/json.h>
 #include "oj_filemodel.hpp"
 #include "oj_view.hpp"
 #include "../common/log/Log.hpp"
@@ -12,8 +13,10 @@
 
 namespace oj_control
 {
-    using namespace oj_filemodel;
-
+    using namespace LogModule;
+    using namespace oj_util;
+    using namespace httplib;
+ 
     class Machine
     {
     public:
@@ -74,6 +77,26 @@ namespace oj_control
         {
             _plock = mutex;
         }
+
+        std::string GetCompileServerIp()
+        {
+            return _compile_server_ip;
+        }
+
+        size_t GetCompileServerPort()
+        {
+            return _compile_server_port;
+        }
+
+        size_t GetMachineLoad(size_t load)
+        {
+            return _load;
+        }
+
+        std::mutex* GetMutex()
+        {
+            return _plock;
+        }
         
     private:
         std::string _compile_server_ip;
@@ -123,7 +146,7 @@ namespace oj_control
             return true;
         }
 
-        void SmartChoice(size_t* id,Machine** m)
+        bool SmartChoice(size_t* id,Machine** m)
         {
             // 1. 使用选择好的主机(更新该主机的负载)
             // 2. 我们需要可能离线该主机
@@ -136,7 +159,7 @@ namespace oj_control
             {
                 _lock.unlock();
                 LOG_FATAL(GetLogger("oj_Logger"),"%s","All machines are offline! Please check!");
-                return;
+                return false;
             }
             // 找到所有负载最小的机器
             *id = _online[0];
@@ -153,6 +176,7 @@ namespace oj_control
                 }
             }
             _lock.unlock();
+            return true;
         }
 
         void OfflineMachine(size_t whichId)
@@ -241,9 +265,63 @@ namespace oj_control
             _view.OneExpandHtml(q,html);
         }
 
-        void Jude(const std::string& id,const std::string& in_json,std::string* out_json)
+        void Judge(const std::string& id,const std::string& in_json,std::string* out_json)
         {
+            // 0. 根据题目编号，直接拿到对应的题目细节
+            oj_filemodel::Question q;
+            _model.GetOneQuestion(id, &q);
 
+            // 1. in_json进行反序列化，得到题目的id，得到用户提交源代码，input
+            Json::Reader reader;
+            Json::Value in_value;
+            reader.parse(in_json,in_value);
+            std::string code = in_value["code"].asString();
+
+            // 2. 重新拼接用户代码+测试用例代码，形成新的代码
+            Json::Value compile_value;
+            compile_value["input"] = in_value["input"].asString();
+            compile_value["code"] = code + "\n" + q._tail;
+            compile_value["cpu_limit"] = q._cpu_limit;
+            compile_value["mem_limit"] = q._mem_limit;
+
+            Json::FastWriter writer;
+            std::string compile_string = writer.write(compile_value);
+
+            // 3. 选择负载最低的主机(差错处理)
+            // 规则: 一直选择，直到主机可用，否则，就是全部挂掉
+            while(1)
+            {
+                size_t id = 0;
+                Machine* pm = nullptr;
+                if(!_loadblance.SmartChoice(&id,&pm))
+                    break;
+
+                // 4. 然后发起http请求，得到结果
+                Client client(pm->GetCompileServerIp(),pm->GetCompileServerPort());
+                pm->IncLoad();
+                LOG_INFOR(GetLogger("oj_Logger"),"%s%zu%s%zu",
+                "Choosing machine succeed! Its id: ",id,(" Ip: " + pm->GetCompileServerIp()+":").c_str(),pm->GetCompileServerPort());
+
+                if(auto ret = client.Post("/compile_and_run",compile_string,"application/json;charset=utf-8"))
+                {
+                    // 5. 将结果赋值给out_json
+                    if(ret->status == 200)
+                    {
+                        *out_json = ret->body;
+                        pm->DecLoad();
+                        LOG_INFOR(GetLogger("oj_Logger"),"%s","Requst compile and run succeed!");
+                        break;
+                    }
+                    pm->DecLoad();
+                }
+                else
+                {
+                    LOG_ERROR(GetLogger("oj_Logger"),"%s%zu%s%zu",
+                    "Machine maybe offline! Its id: ",id,(" Ip: " + pm->GetCompileServerIp()+":").c_str(),pm->GetCompileServerPort());
+                    _loadblance.OfflineMachine(id);
+                    _loadblance.ShowMachines();
+                }
+            }
         }
 
     private:
