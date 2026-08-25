@@ -5,8 +5,10 @@
 #include <thread>
 #include <mutex>
 #include <fstream>
+#include <ctype.h>
 #include <jsoncpp/json/json.h>
 #include "oj_filemodel.hpp"
+#include "oj_mysqlmodel.hpp"
 #include "oj_view.hpp"
 #include "../common/log/Log.hpp"
 #include "../common/Util.hpp"
@@ -16,6 +18,8 @@ namespace oj_control
     using namespace LogModule;
     using namespace oj_util;
     using namespace httplib;
+    using namespace oj_mysqlmodel;
+    // using namespace oj_filemodel;
  
     class Machine
     {
@@ -248,11 +252,11 @@ namespace oj_control
         // html: 输出型参数
         void AllQuestions(std::string* html)
         {
-            std::vector<oj_filemodel::Question> all_questions;
+            std::vector<Question> all_questions;
             _model.GetAllQuestions(&all_questions);
 
             sort(all_questions.begin(),all_questions.end(),
-            [](const oj_filemodel::Question& q1,const oj_filemodel::Question& q2)
+            [](const Question& q1,const Question& q2)
             {
                 return std::atoll(q1._id.c_str()) < std::atoll(q2._id.c_str());
             });
@@ -263,7 +267,7 @@ namespace oj_control
 
         void OneQuestion(const std::string& id, std::string* html)
         {
-            oj_filemodel::Question q;
+            Question q;
             _model.GetOneQuestion(id,&q);
             _view.OneExpandHtml(q,html);
         }
@@ -271,7 +275,7 @@ namespace oj_control
         void Judge(const std::string& id,const std::string& in_json,std::string* out_json)
         {
             // 0. 根据题目编号，直接拿到对应的题目细节
-            oj_filemodel::Question q;
+            Question q;
             _model.GetOneQuestion(id, &q);
 
             // 1. in_json进行反序列化，得到题目的id，得到用户提交源代码，input
@@ -328,7 +332,7 @@ namespace oj_control
         }
 
     private:
-        oj_filemodel::FileModel _model;
+        Model _model;
         oj_view::View _view;
         LoadBlance _loadblance;
     };

@@ -63,10 +63,10 @@ namespace oj_filemodel
     const std::string questions_list = "./questions/questions.list";
     const std::string questions_path = "./questions/";
 
-    class FileModel
+    class Model
     {
     public:
-        FileModel()
+        Model()
         {
             LoadQuestionsList(questions_list);
         }

@@ -3,17 +3,19 @@
 #include <string>
 #include <ctemplate/template.h>
 #include "oj_filemodel.hpp"
+#include "oj_mysqlmodel.hpp"
 
 namespace oj_view
 {
-    using namespace oj_filemodel;
+    using namespace oj_mysqlmodel;
+    // using namespace oj_filemodel;
 
     const std::string template_path = "./template_html/";
 
     class View
     {
     public:
-        void AllExpandHtml(const std::vector<oj_filemodel::Question>& questions,std::string *html)
+        void AllExpandHtml(const std::vector<Question>& questions,std::string *html)
         {
             // 题目的编号 题目的标题 题目的难度
             // 推荐使用表格显示
@@ -36,7 +38,7 @@ namespace oj_view
             tpl->Expand(html,&root);
         }
 
-        void OneExpandHtml(oj_filemodel::Question& q, std::string* html)
+        void OneExpandHtml(Question& q, std::string* html)
         {
             std::string src_html = template_path + "one_question.html";
 
