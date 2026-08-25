@@ -55,8 +55,9 @@ namespace oj_filemodel
         size_t _cpu_limit;      // 题目的时间要求(S)
         size_t _mem_limit;      // 题目的空间要去(MB)
         std::string _desc;      // 题目的描述
-        std::string _header;    // 题目预设给用户在线编辑器的代码
-        std::string _tail;    // 题目的测试用例，需要和header拼接，形成完整代码
+        std::string _header;    // 题目隐藏的头文件，只有接口模式下有，IO模式为空
+        std::string _answer;    // 题目预设给用户在线编辑器的代码
+        std::string _tail;      // 题目的测试用例，需要和header拼接，形成完整代码
     };
 
     const std::string questions_list = "./questions/questions.list";
@@ -73,7 +74,7 @@ namespace oj_filemodel
         void LoadQuestionsList(const std::string& questions_list)
         {
             std::ifstream in(questions_list);
-            assert(!in.is_open());
+            assert(in.is_open());
 
             std::string line;
             while(std::getline(in,line))
@@ -97,6 +98,7 @@ namespace oj_filemodel
                 std::string path = questions_path + q._id + "/";
                 File::ReadFile(&(q._desc),path+"desc.txt",true);
                 File::ReadFile(&(q._header),path+"header.cpp",true);
+                File::ReadFile(&(q._answer),path+"answer.cpp",true);
                 File::ReadFile(&(q._tail),path+"tail.cpp",true);
 
                 _questions[q._id] = q;

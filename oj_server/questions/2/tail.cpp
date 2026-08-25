@@ -1,11 +1,6 @@
-#include <iostream>
-#include <vector>
-#include <algorithm>
-
-using namespace std;
-
 #ifndef COMPILER_ONLINE
 #include "header.cpp"
+#include "answer.cpp"
 #endif
 
 void test1()

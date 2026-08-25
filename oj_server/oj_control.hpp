@@ -140,6 +140,9 @@ namespace oj_control
                 machine.SetCompileServerPort(std::atoll(tokens[1].c_str()));
                 machine.SetMachineLoad(0);
                 machine.SetMutex(new std::mutex());
+
+                _online.emplace_back(_machines.size());
+                _machines.emplace_back(machine);
             }
 
             in.close();
@@ -280,7 +283,7 @@ namespace oj_control
             // 2. 重新拼接用户代码+测试用例代码，形成新的代码
             Json::Value compile_value;
             compile_value["input"] = in_value["input"].asString();
-            compile_value["code"] = code + "\n" + q._tail;
+            compile_value["code"] = q._header + "/\n" + code + "/\n" + q._tail;
             compile_value["cpu_limit"] = q._cpu_limit;
             compile_value["mem_limit"] = q._mem_limit;
 

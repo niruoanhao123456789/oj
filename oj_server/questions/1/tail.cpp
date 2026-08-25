@@ -1,13 +1,6 @@
-#include <iostream>
-#include <string>
-#include <vector>
-#include <unordered_map>
-#include <algorithm>
-
-using namespace std;
-
 #ifndef COMPILER_ONLINE
 #include "header.cpp"
+#include "answer.cpp"
 #endif
 
 void test1()

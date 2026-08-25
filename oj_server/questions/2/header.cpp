@@ -1,10 +1,6 @@
-class Solution
-{
-public:
-    int Max(const vector<int> &v)
-    {
-        // code write here...
+#include <iostream>
+#include <vector>
+#include <algorithm>
 
-        return 0;
-    }
-};
+using namespace std;
+

@@ -1,6 +1,7 @@
 #pragma once
 #include <iostream>
 #include <string>
+#include <vector>
 #include <atomic>
 #include <cassert>
 #include <sys/time.h>
