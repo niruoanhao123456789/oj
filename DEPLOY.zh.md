@@ -103,7 +103,14 @@ VALUES (
 
 ## 4. 编译构建
 
-使用各服务自带的 `makefile` 进行构建：
+各服务使用自带的 `makefile` 构建。在项目根目录下，顶层 `makefile` 可以一次编译两个服务：
+
+```bash
+# 在项目根目录 —— 一次编译两个服务
+make
+```
+
+也可以逐个构建：
 
 ```bash
 # 编译服务器
@@ -115,7 +122,32 @@ cd ../oj_server
 make
 ```
 
-构建产物为 `compile_server/compile_server` 与 `oj_server/oj_server` 两个可执行文件。`make clean` 可清理它们（对 `compile_server` 还会清理 `temp/` 下的临时文件）。
+构建产物为 `compile_server/compile_server` 与 `oj_server/oj_server` 两个可执行文件。顶层 `make clean` 可清理它们（对 `compile_server` 还会清理 `temp/` 下的临时文件）。
+
+### 打包发布
+
+顶层 `make output` 目标会将完整的、可独立运行的程序打包到 `output/` 目录下 —— 包含在其他主机上运行该系统所需的全部内容，可用于发布或发送：
+
+```bash
+make output
+```
+
+生成的结构如下：
+
+```
+output/
+├── compile_server/
+│   ├── compile_server          # 判题节点二进制
+│   └── temp/                   # 运行时临时目录
+└── oj_server/
+    ├── oj_server               # 网关二进制
+    ├── conf/                   # service_machine.conf
+    ├── questions/              # 文件模型的示例题目
+    ├── template_html/          # ctemplate 模板
+    └── wwwroot/                # 静态资源
+```
+
+将 `output/` 拷贝到目标主机后，按本指南后续步骤操作，并分别在 `output/compile_server/` 与 `output/oj_server/` 目录下启动节点和网关即可。`make clean` 也会删除整个 `output/` 目录。
 
 ## 5. 配置编译服务器
 

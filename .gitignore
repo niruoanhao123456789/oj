@@ -71,5 +71,8 @@ Testing/
 # temp
 compile_server/temp/
 
+# packaged output (make output)
+output/
+
 # agents
 .opencode/

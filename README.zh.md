@@ -14,6 +14,7 @@
 - [系统架构](#系统架构)
 - [目录结构](#目录结构)
 - [快速开始](#快速开始)
+- [构建与打包](#构建与打包)
 - [文档索引](#文档索引)
 - [许可证](#许可证)
 
@@ -113,6 +114,8 @@
 │   ├── wwwroot/                # 静态资源（落地页等）
 │   ├── questions/              # 文件模型的示例题目
 │   └── makefile
+├── makefile                    # 顶层构建 / 打包入口
+├── output/                     # `make output` 生成的发布包
 ├── README.md                   # 本文档（中文）/ README.md（英文）
 ├── API.md                      # HTTP 接口文档（中文）/ API.zh.md（英文）
 ├── DEPLOY.md                   # 部署文档（中文）/ DEPLOY.zh.md（英文）
@@ -125,9 +128,8 @@
 
 ```bash
 # 1. 创建 MySQL 数据库与 oj_client 用户（详见 DEPLOY.zh.md）
-# 2. 编译两个服务
-cd compile_server && make
-cd ../oj_server && make
+# 2. 编译两个服务（顶层 makefile）
+make
 
 # 3. 启动编译服务器（每个节点需在各自的工作目录下运行）
 ./compile_server 8081
@@ -139,6 +141,33 @@ cd ../oj_server && ./oj_server
 
 # 5. 浏览器打开
 ```
+
+## 构建与打包
+
+顶层 `makefile` 统一管理两个服务的构建与打包：
+
+| 目标 | 用途 |
+| --- | --- |
+| `make` / `make all` | 在各自目录下编译 `compile_server` 与 `oj_server`。 |
+| `make output` | 将完整的、可独立运行的程序打包到 `output/` 目录，用于发布或发送给他人。 |
+| `make clean` | 清理两个服务的构建产物，并删除整个 `output/` 目录。 |
+
+`make output` 生成的结构如下：
+
+```
+output/
+├── compile_server/
+│   ├── compile_server          # 判题节点二进制
+│   └── temp/                   # 运行时临时目录
+└── oj_server/
+    ├── oj_server               # 网关二进制
+    ├── conf/                   # service_machine.conf
+    ├── questions/              # 文件模型的示例题目
+    ├── template_html/          # ctemplate 模板
+    └── wwwroot/                # 静态资源
+```
+
+该发布包可独立运行：将 `output/` 拷贝到其他主机并配置好 MySQL 后，分别在 `output/compile_server/` 与 `output/oj_server/` 目录下启动节点和网关即可（详见 [DEPLOY.zh.md](DEPLOY.zh.md)）。
 
 ## 文档索引
 

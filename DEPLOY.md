@@ -103,7 +103,14 @@ VALUES (
 
 ## 4. Build the Services
 
-Build each service with its bundled `makefile`:
+Each service builds with its bundled `makefile`. From the project root, the top-level `makefile` builds both at once:
+
+```bash
+# From the project root — builds both services
+make
+```
+
+Or build each service individually:
 
 ```bash
 # Compile servers
@@ -115,7 +122,32 @@ cd ../oj_server
 make
 ```
 
-This produces `compile_server/compile_server` and `oj_server/oj_server` executables. `make clean` removes them (and, for `compile_server`, the temporary files under `temp/`).
+This produces `compile_server/compile_server` and `oj_server/oj_server` executables. `make clean` (top level) removes them and, for `compile_server`, the temporary files under `temp/`.
+
+### Packaging for Distribution
+
+The top-level `make output` target assembles a complete, self-contained program bundle under `output/` — everything needed to run the system on another host — ready to publish or send:
+
+```bash
+make output
+```
+
+It produces:
+
+```
+output/
+├── compile_server/
+│   ├── compile_server          # Judge node binary
+│   └── temp/                   # Runtime temp dir
+└── oj_server/
+    ├── oj_server               # Gateway binary
+    ├── conf/                   # service_machine.conf
+    ├── questions/              # File-model sample questions
+    ├── template_html/          # ctemplate templates
+    └── wwwroot/                # Static assets
+```
+
+After copying `output/` to the target host, follow the remaining steps of this guide, running the nodes and gateway from inside `output/compile_server/` and `output/oj_server/` respectively. `make clean` also deletes the whole `output/` directory.
 
 ## 5. Configure the Compile Servers
 
