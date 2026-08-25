@@ -5,80 +5,258 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>题目列表 - 在线OJ</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
-            background: #f5f7fa;
-            color: #333;
+        :root {
+            --primary: #0EA5E9;
+            --primary-dark: #0369A1;
+            --secondary: #38BDF8;
+            --accent: #F97316;
+            --accent-soft: #FFF7ED;
+            --bg: #F0F9FF;
+            --card: #FFFFFF;
+            --text: #0C4A6E;
+            --muted: #64748B;
+            --border: #E0F2FE;
+            --shadow: 0 8px 30px rgba(14, 165, 233, 0.12);
         }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        .bg-decor {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background:
+                radial-gradient(40% 30% at 15% 12%, rgba(56, 189, 248, 0.18), transparent 70%),
+                radial-gradient(35% 30% at 88% 8%, rgba(249, 115, 22, 0.10), transparent 70%),
+                radial-gradient(45% 35% at 80% 90%, rgba(56, 189, 248, 0.14), transparent 70%),
+                linear-gradient(180deg, #F0F9FF 0%, #E0F2FE 100%);
+        }
+
+        /* Floating navbar */
         .header {
-            background: #2c3e50;
-            color: #fff;
-            padding: 20px 40px;
+            position: sticky;
+            top: 14px;
+            z-index: 50;
+            max-width: 960px;
+            margin: 14px auto 0;
+            padding: 10px 22px;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
         }
-        .header h1 { font-size: 24px; font-weight: 500; }
+        .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); }
+        .brand svg { color: var(--primary); }
+        .brand h1 { font-size: 20px; font-weight: 700; letter-spacing: 1px; }
+        .brand h1 em { font-style: normal; color: var(--accent); }
         .header nav a {
-            color: #fff;
+            color: var(--text);
             text-decoration: none;
-            margin-left: 20px;
-            padding: 6px 14px;
-            border: 1px solid #fff;
-            border-radius: 4px;
-            transition: all .2s;
+            font-size: 14px;
+            padding: 7px 16px;
+            border-radius: 10px;
+            background: var(--accent-soft);
+            border: 1px solid rgba(249, 115, 22, 0.25);
+            transition: all .25s ease;
         }
-        .header nav a:hover { background: #fff; color: #2c3e50; }
-        .container { max-width: 900px; margin: 40px auto; padding: 0 20px; }
-        .container h2 { margin-bottom: 20px; font-size: 22px; }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background: #fff;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-            border-radius: 6px;
+        .header nav a:hover {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(249, 115, 22, 0.35);
+        }
+
+        .container { max-width: 960px; margin: 40px auto 20px; padding: 0 20px; }
+
+        /* Hero */
+        .hero { text-align: center; padding: 18px 0 30px; }
+        .hero .eyebrow {
+            display: inline-block;
+            font-size: 13px;
+            color: var(--primary-dark);
+            background: rgba(14, 165, 233, 0.10);
+            border: 1px solid var(--border);
+            padding: 4px 14px;
+            border-radius: 999px;
+            margin-bottom: 14px;
+            letter-spacing: 2px;
+        }
+        .hero h2 {
+            font-family: "Noto Serif SC", "Songti SC", "SimSun", serif;
+            font-size: 34px;
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+        .hero .quote {
+            margin-top: 10px;
+            color: var(--muted);
+            font-size: 14px;
+            letter-spacing: 1px;
+        }
+        .hero .quote b { color: var(--accent); font-weight: 600; }
+
+        .hero .stats {
+            margin-top: 22px;
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .hero .stat {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 10px 18px;
+            box-shadow: 0 4px 14px rgba(14, 165, 233, 0.08);
+            font-size: 14px;
+        }
+        .hero .stat svg { color: var(--primary); }
+        .hero .stat b { color: var(--text); font-size: 18px; }
+
+        /* Table card */
+        .table-wrap {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            box-shadow: var(--shadow);
             overflow: hidden;
         }
+        table { width: 100%; border-collapse: collapse; }
         th, td {
-            padding: 14px 20px;
+            padding: 16px 24px;
             text-align: left;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid #F0F7FC;
         }
         th {
-            background: #f8f9fa;
-            color: #555;
+            background: #F6FBFE;
+            color: var(--muted);
+            font-size: 13px;
             font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
         }
-        tr:hover { background: #fafbfc; }
-        td a { color: #3498db; text-decoration: none; }
-        td a:hover { text-decoration: underline; }
-        .rank { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 13px; color: #fff; background: #2ecc71; }
-        .empty { text-align: center; color: #999; padding: 40px; }
+        tr { transition: background .2s ease; }
+        tbody tr:hover { background: #F0F9FF; }
+        tbody tr { border-left: 3px solid transparent; transition: border-color .2s ease, background .2s ease; }
+        tbody tr:hover { border-left-color: var(--primary); }
+        td a { color: var(--primary-dark); text-decoration: none; font-weight: 600; }
+        td a:hover { color: var(--primary); text-decoration: underline; }
+        td.id-col { color: var(--muted); font-weight: 600; }
+        td.id-col a { font-weight: 600; }
+
+        /* Difficulty badge */
+        .rank {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 14px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 600;
+            background: #ECFDF5;
+            color: #059669;
+            border: 1px solid #A7F3D0;
+        }
+        .rank::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+        .rank.rank-mid { background: #FFF7ED; color: #C2410C; border-color: #FED7AA; }
+        .rank.rank-hard { background: #FEF2F2; color: #B91C1C; border-color: #FECACA; }
+
+        .empty { text-align: center; color: var(--muted); padding: 48px 20px; font-size: 15px; }
+
+        footer {
+            text-align: center;
+            color: var(--muted);
+            font-size: 13px;
+            padding: 26px 20px 34px;
+        }
+        footer .line { color: rgba(14, 165, 233, 0.4); }
+
+        @media (max-width: 640px) {
+            .hero h2 { font-size: 26px; }
+            th, td { padding: 12px 16px; }
+            .brand h1 { font-size: 17px; }
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>在线OJ</h1>
+    <div class="bg-decor"></div>
+
+    <header class="header">
+        <a class="brand" href="/">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            <h1>在线<em>OJ</em></h1>
+        </a>
         <nav><a href="/">首页</a></nav>
-    </div>
+    </header>
 
     <div class="container">
-        <h2>题目列表</h2>
-        <table>
-            <tr>
-                <th>题号</th>
-                <th>题目</th>
-                <th>难度</th>
-            </tr>
-            {{#question_list}}
-            <tr>
-                <td><a href="/question/{{id}}">{{id}}</a></td>
-                <td><a href="/question/{{id}}">{{title}}</a></td>
-                <td><span class="rank">{{rank}}</span></td>
-            </tr>
-            {{/question_list}}
-        </table>
+        <div class="hero">
+            <span class="eyebrow">题目集</span>
+            <h2>题目列表</h2>
+            <p class="quote">“温故而知新，可以为师矣。”</p>
+            <div class="stats">
+                <div class="stat">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                    <span>待练题目 <b id="q-count">0</b></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>题号</th>
+                        <th>题目</th>
+                        <th>难度</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{#question_list}}
+                    <tr>
+                        <td class="id-col"><a href="/question/{{id}}">{{id}}</a></td>
+                        <td><a href="/question/{{id}}">{{title}}</a></td>
+                        <td><span class="rank" data-rank="{{rank}}">{{rank}}</span></td>
+                    </tr>
+                    {{/question_list}}
+                </tbody>
+            </table>
+            <div class="empty" id="empty" style="display:none;">暂无题目，敬请期待～</div>
+        </div>
+
+        <footer><span class="line">✦</span> 愿每一次提交，都是与更好的自己相遇 <span class="line">✦</span></footer>
     </div>
+
+    <script>
+        // Color-code difficulty badges by text
+        function applyRankColors() {
+            var ranks = document.querySelectorAll('.rank');
+            var total = 0;
+            for (var i = 0; i < ranks.length; i++) {
+                var t = ranks[i].getAttribute('data-rank') || ranks[i].textContent;
+                if (t.indexOf('简') !== -1 || t.indexOf('易') !== -1 || t.indexOf('1') === 0) { /* easy, default */ }
+                else if (t.indexOf('中') !== -1 || t.indexOf('2') === 0) { ranks[i].classList.add('rank-mid'); }
+                else if (t.indexOf('难') !== -1 || t.indexOf('3') === 0) { ranks[i].classList.add('rank-hard'); }
+                total++;
+            }
+            var counter = document.getElementById('q-count');
+            if (counter) counter.textContent = total;
+            var empty = document.getElementById('empty');
+            if (empty && total === 0) empty.style.display = 'block';
+        }
+        applyRankColors();
+    </script>
 </body>
 </html>

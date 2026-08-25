@@ -5,126 +5,335 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{title}} - 在线OJ</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
-            background: #f5f7fa;
-            color: #333;
+        :root {
+            --primary: #0EA5E9;
+            --primary-dark: #0369A1;
+            --secondary: #38BDF8;
+            --accent: #F97316;
+            --accent-dark: #C2410C;
+            --accent-soft: #FFF7ED;
+            --bg: #F0F9FF;
+            --card: #FFFFFF;
+            --text: #0C4A6E;
+            --muted: #64748B;
+            --border: #E0F2FE;
+            --shadow: 0 8px 30px rgba(14, 165, 233, 0.12);
         }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        .bg-decor {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background:
+                radial-gradient(40% 30% at 15% 12%, rgba(56, 189, 248, 0.18), transparent 70%),
+                radial-gradient(35% 30% at 88% 8%, rgba(249, 115, 22, 0.10), transparent 70%),
+                radial-gradient(45% 35% at 80% 90%, rgba(56, 189, 248, 0.14), transparent 70%),
+                linear-gradient(180deg, #F0F9FF 0%, #E0F2FE 100%);
+        }
+
+        /* Floating navbar */
         .header {
-            background: #2c3e50;
-            color: #fff;
-            padding: 20px 40px;
+            position: sticky;
+            top: 14px;
+            z-index: 50;
+            max-width: 1160px;
+            margin: 14px auto 0;
+            padding: 10px 22px;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
         }
-        .header h1 { font-size: 24px; font-weight: 500; }
+        .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); }
+        .brand svg { color: var(--primary); }
+        .brand h1 { font-size: 20px; font-weight: 700; letter-spacing: 1px; }
+        .brand h1 em { font-style: normal; color: var(--accent); }
+        .header nav { display: flex; gap: 10px; }
         .header nav a {
-            color: #fff;
+            color: var(--text);
             text-decoration: none;
-            margin-left: 20px;
-            padding: 6px 14px;
-            border: 1px solid #fff;
-            border-radius: 4px;
-            transition: all .2s;
+            font-size: 14px;
+            padding: 7px 16px;
+            border-radius: 10px;
+            transition: all .25s ease;
+            border: 1px solid transparent;
         }
-        .header nav a:hover { background: #fff; color: #2c3e50; }
+        .header nav a.link { background: rgba(14, 165, 233, 0.08); border-color: var(--border); }
+        .header nav a.link:hover { background: var(--primary); color: #fff; box-shadow: 0 4px 14px rgba(14, 165, 233, 0.35); }
+        .header nav a.cta { background: var(--accent-soft); border-color: rgba(249, 115, 22, 0.25); }
+        .header nav a.cta:hover { background: var(--accent); color: #fff; box-shadow: 0 4px 14px rgba(249, 115, 22, 0.35); }
+
         .container {
             display: flex;
             gap: 20px;
-            max-width: 1200px;
-            margin: 30px auto;
+            max-width: 1160px;
+            margin: 34px auto 20px;
             padding: 0 20px;
+            align-items: stretch;
         }
+
         .card {
-            background: #fff;
-            border-radius: 6px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-            padding: 20px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            box-shadow: var(--shadow);
+            padding: 24px;
         }
-        .question { flex: 1; min-width: 0; }
-        .editor-panel { flex: 1; min-width: 0; }
-        .question h2 { margin-bottom: 10px; }
+        .question { flex: 1 1 46%; min-width: 0; }
+        .editor-panel { flex: 1 1 54%; min-width: 0; display: flex; flex-direction: column; }
+
+        .question h2 {
+            font-family: "Noto Serif SC", "Songti SC", "SimSun", serif;
+            font-size: 24px;
+            margin-bottom: 14px;
+            line-height: 1.4;
+            word-break: break-all;
+        }
+
         .rank {
-            display: inline-block;
-            padding: 2px 10px;
-            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 14px;
+            border-radius: 999px;
             font-size: 13px;
-            color: #fff;
-            background: #2ecc71;
+            font-weight: 600;
+            background: #ECFDF5;
+            color: #059669;
+            border: 1px solid #A7F3D0;
+            vertical-align: middle;
+            margin-left: 4px;
         }
+        .rank::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+        .rank.rank-mid { background: #FFF7ED; color: #C2410C; border-color: #FED7AA; }
+        .rank.rank-hard { background: #FEF2F2; color: #B91C1C; border-color: #FECACA; }
+
         .desc {
             margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px dashed var(--border);
             white-space: pre-wrap;
-            line-height: 1.8;
-            color: #444;
+            line-height: 1.9;
+            color: #334E68;
+            font-size: 15px;
+            word-break: break-all;
         }
-        .editor-panel h3 { margin-bottom: 10px; }
-        textarea.code {
-            width: 100%;
-            height: 320px;
-            font-family: "Consolas", "Courier New", monospace;
+
+        .editor-panel h3 {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 17px;
+            margin-bottom: 12px;
+            color: var(--text);
+        }
+        .editor-panel h3 svg { color: var(--primary); }
+        .hint { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: auto; }
+
+        .editor-wrap {
+            position: relative;
+            flex: 1;
+            min-height: 320px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            background: #1D1F21;
+            transition: border-color .2s ease, box-shadow .2s ease;
+        }
+        .editor-wrap:focus-within {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+        }
+        #code { position: absolute; inset: 0; font-size: 14px; }
+        #placeholder {
+            position: absolute;
+            top: 12px;
+            left: 46px;
+            z-index: 2;
+            pointer-events: none;
+            color: #6B7A8C;
             font-size: 14px;
-            line-height: 1.5;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 12px;
-            resize: vertical;
-            background: #f8f9fa;
         }
+
+        .actions { margin-top: 16px; display: flex; align-items: center; gap: 12px; }
         .btn {
-            display: inline-block;
-            margin-top: 14px;
-            background: #3498db;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, #F97316, #FB923C);
             color: #fff;
             border: none;
-            padding: 10px 28px;
-            font-size: 16px;
-            border-radius: 6px;
+            padding: 11px 30px;
+            font-size: 15px;
+            font-weight: 600;
+            border-radius: 12px;
             cursor: pointer;
-            transition: background .2s;
+            transition: all .25s ease;
+            box-shadow: 0 4px 14px rgba(249, 115, 22, 0.35);
         }
-        .btn:hover { background: #2980b9; }
-        .result {
-            margin-top: 14px;
-            padding: 14px;
-            border-radius: 6px;
-            background: #f8f9fa;
-            border: 1px solid #eee;
-            white-space: pre-wrap;
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(249, 115, 22, 0.45); }
+        .btn:active { transform: translateY(0); }
+        .btn:disabled { opacity: 0.7; cursor: wait; transform: none; }
+        .btn .spinner {
             display: none;
+            width: 16px; height: 16px;
+            border: 2px solid rgba(255,255,255,0.4);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+        }
+        .btn.loading .spinner { display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .result {
+            margin-top: 16px;
+            padding: 14px 16px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: #F8FBFE;
+            color: #334E68;
+            white-space: pre-wrap;
+            font-family: "Consolas", "Courier New", monospace;
+            font-size: 13px;
+            line-height: 1.7;
+            display: none;
+            word-break: break-all;
+        }
+        .result.pending { background: #F0F9FF; border-color: #BAE6FD; }
+        .result.success { background: #ECFDF5; border-color: #A7F3D0; color: #065F46; }
+        .result.fail { background: #FEF2F2; border-color: #FECACA; color: #991B1B; }
+
+        footer {
+            text-align: center;
+            color: var(--muted);
+            font-size: 13px;
+            padding: 26px 20px 34px;
+        }
+        footer .line { color: rgba(14, 165, 233, 0.4); }
+
+        @media (max-width: 860px) {
+            .container { flex-direction: column; }
+            .question h2 { font-size: 20px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .btn, .btn .spinner { animation: none !important; transition: none !important; }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>在线OJ</h1>
-        <nav><a href="/">首页</a><a href="/all_questions">题目列表</a></nav>
-    </div>
+    <div class="bg-decor"></div>
+
+    <header class="header">
+        <a class="brand" href="/">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            <h1>在线<em>OJ</em></h1>
+        </a>
+        <nav>
+            <a class="link" href="/">首页</a>
+            <a class="cta" href="/all_questions">题目列表</a>
+        </nav>
+    </header>
 
     <div class="container">
         <div class="card question">
-            <h2>{{id}}. {{title}} <span class="rank">{{rank}}</span></h2>
+            <h2>{{id}}. {{title}} <span class="rank" data-rank="{{rank}}">{{rank}}</span></h2>
             <div class="desc">{{desc}}</div>
         </div>
 
         <div class="card editor-panel">
-            <h3>在线编辑区</h3>
-            <textarea class="code" id="code" placeholder="在此编写你的代码...">{{pre_code}}</textarea>
-            <div>
-                <button class="btn" onclick="submitCode()">提交评测</button>
+            <h3>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                在线编辑区
+                <span class="hint">Ctrl+Enter 提交</span>
+            </h3>
+            <div class="editor-wrap">
+                <div id="code"></div>
+                <div id="placeholder">在此编写你的代码，于指尖推开一扇门...</div>
+            </div>
+            <div class="actions">
+                <button class="btn" id="submitBtn" onclick="submitCode()">
+                    <span class="spinner"></span>
+                    <span id="btnText">提交评测</span>
+                </button>
             </div>
             <div class="result" id="result"></div>
         </div>
     </div>
 
+    <footer><span class="line">✦</span> 代码无声，热爱有声，愿你不负此行 <span class="line">✦</span></footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.2/ace.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.2/mode-c_cpp.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.2/theme-tomorrow_night.min.js"></script>
+
+    <script type="text/plain" id="preCode">{{pre_code}}</script>
+
     <script>
-        function submitCode() {
-            var code = document.getElementById('code').value;
+        // Color-code difficulty badge
+        (function () {
+            var rank = document.querySelector('.rank');
+            if (rank) {
+                var t = rank.getAttribute('data-rank') || rank.textContent;
+                if (t.indexOf('中') !== -1 || t.indexOf('2') === 0) { rank.classList.add('rank-mid'); }
+                else if (t.indexOf('难') !== -1 || t.indexOf('3') === 0) { rank.classList.add('rank-hard'); }
+            }
+        })();
+
+        var editor = ace.edit('code');
+        editor.setTheme('ace/theme/tomorrow_night');
+        editor.session.setMode('ace/mode/c_cpp');
+        editor.setOption('fontSize', 14);
+        editor.setOption('fontFamily', '"Consolas", "JetBrains Mono", "Courier New", monospace');
+        editor.setOption('tabSize', 4);
+        editor.setOption('useSoftTabs', true);
+        editor.setOption('showPrintMargin', false);
+        editor.setValue(document.getElementById('preCode').textContent.trim());
+        editor.clearSelection();
+        editor.focus();
+        editor.session.getSelection().clearSelection();
+        editor.gotoLine(1, 0);
+
+        // Placeholder toggle
+        var placeholder = document.getElementById('placeholder');
+        function togglePlaceholder() {
+            placeholder.style.display = editor.getValue() ? 'none' : 'block';
+        }
+        editor.on('input', togglePlaceholder);
+        togglePlaceholder();
+
+        window.addEventListener('resize', function () { editor.resize(); });
+
+        function setResult(cls, text) {
             var result = document.getElementById('result');
+            result.className = 'result ' + cls;
             result.style.display = 'block';
-            result.textContent = '正在评测中，请稍候...';
+            result.textContent = text;
+        }
+
+        function setLoading(loading) {
+            var btn = document.getElementById('submitBtn');
+            var txt = document.getElementById('btnText');
+            btn.classList.toggle('loading', loading);
+            btn.disabled = loading;
+            txt.textContent = loading ? '评测中，请稍候...' : '提交评测';
+        }
+
+        function submitCode() {
+            var code = editor.getValue();
+            setLoading(true);
+            setResult('pending', '正在评测中，请稍候...');
 
             var xhr = new XMLHttpRequest();
             xhr.open('POST', '/judge/{{id}}', true);
@@ -132,16 +341,28 @@
             xhr.onreadystatechange = function () {
                 if (xhr.readyState === 4 && xhr.status === 200) {
                     var data = JSON.parse(xhr.responseText);
-                    var text = '状态: ' + data.reason + '\n';
+                    var reason = data.reason || '';
+                    var text = '状态: ' + reason + '\n';
                     if (data.stdout) text += '输出:\n' + data.stdout + '\n';
                     if (data.stderr) text += '错误输出:\n' + data.stderr + '\n';
-                    result.textContent = text;
+                    var ok = /通过|成功|AC|Accepted|正确/i.test(reason) &&
+                             !/未|失败|错误|WA|Wrong|Compile/i.test(reason);
+                    setResult(ok ? 'success' : 'fail', text);
+                    setLoading(false);
                 } else if (xhr.readyState === 4) {
-                    result.textContent = '评测请求失败: HTTP ' + xhr.status;
+                    setResult('fail', '评测请求失败: HTTP ' + xhr.status);
+                    setLoading(false);
                 }
             };
             xhr.send(JSON.stringify({ code: code }));
         }
+
+        // Ctrl+Enter to submit
+        editor.commands.addCommand({
+            name: 'submit',
+            bindKey: { win: 'Ctrl-Enter', mac: 'Command-Enter' },
+            exec: submitCode
+        });
     </script>
 </body>
 </html>

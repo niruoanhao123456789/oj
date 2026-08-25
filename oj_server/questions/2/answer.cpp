@@ -1,10 +1,8 @@
 class Solution
 {
 public:
-    int Max(const vector<int> &v)
+    int Max(const vector<int> &nums)
     {
         // code write here...
-
-        return 0;
     }
 };
