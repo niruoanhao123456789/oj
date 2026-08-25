@@ -8,6 +8,8 @@ An online judge (OJ) platform built around a **load-balanced judging architectur
 
 ## Table of Contents
 
+- [Technologies](#technologies)
+- [Dependencies](#dependencies)
 - [Features](#features)
 - [Architecture](#architecture)
 - [Directory Layout](#directory-layout)
@@ -16,6 +18,46 @@ An online judge (OJ) platform built around a **load-balanced judging architectur
 - [License](#license)
 
 ---
+
+## Technologies
+
+1. C++ STL standard library
+2. Boost quasi-standard library (string splitting)
+3. cpp-httplib third-party open-source networking library
+4. ctemplate third-party open-source HTML rendering library
+5. jsoncpp third-party open-source serialization / deserialization library
+6. Load-balancing design
+7. Multi-process, multi-threading
+8. MySQL C connector
+9. Ace front-end online editor
+
+## Dependencies
+
+- A Linux system with a C++20-capable toolchain (recommended `g++` ≥ 10), plus `make` and `g++`.
+- A MySQL service (recommended MySQL/MariaDB 8.x) reachable on `127.0.0.1:3306`.
+
+| Dependency | Package (Debian/Ubuntu) | Purpose |
+| --- | --- | --- |
+| g++ | `g++` | Compiles judged source (`-std=c++20`) and builds this project |
+| make | `make` | Builds via the bundled `makefile` of each service |
+| jsoncpp | `libjsoncpp-dev` | JSON serialization / deserialization (`-ljsoncpp`) |
+| cpp-httplib | `libcpp-httplib-dev` | HTTP networking library (`-lcpp-httplib`) |
+| ctemplate | `libctemplate-dev` | Template-driven HTML rendering (`-lctemplate`) |
+| MySQL client | `libmysqlclient-dev` | MySQL C API (`-lmysqlclient`) |
+| Boost (headers) | `libboost-dev` | String-splitting utilities |
+| pthread | glibc | Multi-threading (`-lpthread`) |
+
+Example install (Debian/Ubuntu):
+
+```bash
+sudo apt update
+sudo apt install -y g++ make mysql-server libjsoncpp-dev libcpp-httplib-dev \
+    libctemplate-dev libmysqlclient-dev libboost-dev
+```
+
+> For detailed deployment steps (database setup, build, and startup) see [DEPLOY.md](DEPLOY.md).
+
+## Features
 
 ## Features
 

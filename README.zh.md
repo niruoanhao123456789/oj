@@ -8,6 +8,8 @@
 
 ## 目录
 
+- [所用技术](#所用技术)
+- [环境依赖](#环境依赖)
 - [功能特性](#功能特性)
 - [系统架构](#系统架构)
 - [目录结构](#目录结构)
@@ -16,6 +18,35 @@
 - [许可证](#许可证)
 
 ---
+
+## 所用技术: 
+1. C++ STL 标准库
+2. Boost 准标准库(字符串切割) 
+3. cpp-httplib 第三方开源网络库
+4. ctemplate 第三方开源前端网页渲染库
+5. jsoncpp 第三方开源序列化、反序列化库
+6. 负载均衡设计
+7. 多进程、多线程
+8. MySQL C connect   
+9. Ace前端在线编辑器
+
+## 环境依赖
+
+- 支持 C++20 的 Linux 系统（推荐 `g++` ≥ 10），需要 `make` 与 `g++`。
+- MySQL 服务（推荐 MySQL/MariaDB 8.x），可于 `127.0.0.1:3306` 访问。
+
+| 依赖 | 包名（Debian/Ubuntu） | 用途 |
+| --- | --- | --- |
+| g++ | `g++` | 编译判题源码（`-std=c++20`）与构建本项目 |
+| make | `make` | 通过各服务自带 `makefile` 构建 |
+| jsoncpp | `libjsoncpp-dev` | JSON 序列化 / 反序列化（`-ljsoncpp`） |
+| cpp-httplib | `libcpp-httplib-dev` | HTTP 网络库（`-lcpp-httplib`） |
+| ctemplate | `libctemplate-dev` | 模板化 HTML 渲染（`-lctemplate`） |
+| MySQL 客户端 | `libmysqlclient-dev` | MySQL C API（`-lmysqlclient`） |
+| Boost（头文件） | `libboost-dev` | 字符串切割工具 |
+| pthread | glibc | 多线程（`-lpthread`） |
+
+> 更详细的部署步骤（数据库初始化、构建与启动）请参考 [DEPLOY.zh.md](DEPLOY.zh.md)。
 
 ## 功能特性
 
