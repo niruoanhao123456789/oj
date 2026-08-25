@@ -70,3 +70,6 @@ Testing/
 
 # temp
 compile_server/temp/
+
+# agents
+.opencode/
