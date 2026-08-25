@@ -45,7 +45,7 @@ namespace oj_view
             root.SetValue("title",q._title);
             root.SetValue("rank",q.RankToString());
             root.SetValue("desc",q._desc);
-            root.SetValue("pre_code",q._header);
+            root.SetValue("pre_code",q._answer);
 
             ctemplate::Template* tpl = ctemplate::Template::GetTemplate(src_html,ctemplate::DO_NOT_STRIP);
 

@@ -158,7 +158,8 @@ namespace oj_compile_run
             Json::StyledWriter writer;
             *out_json = writer.write(out_value);
 
-            // RemoveTempFiles(filename);
+            // can be used for test
+            RemoveTempFiles(filename);
         }
     };
 }

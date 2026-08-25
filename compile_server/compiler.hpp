@@ -33,7 +33,7 @@ namespace oj_compiler
                 //程序替换，并不影响进程的文件描述符表
                 //子进程: 调用编译器，完成对代码的编译工作
                 //g++ -o target src -std=c++11
-                execlp("g++","g++","-o",oj_util::Path::Exe(filename).c_str(),oj_util::Path::Src(filename).c_str(),"-std=c++20",nullptr);
+                execlp("g++","g++","-o",oj_util::Path::Exe(filename).c_str(),oj_util::Path::Src(filename).c_str(),"-D","COMPILER_ONLINE","-std=c++20",nullptr);
 
                 LOG_ERROR(GetLogger("CompileRun_Loggger"),"%s","g++ failed, maybe args wrong.");
             }
