@@ -6,6 +6,7 @@
 #include <mutex>
 #include <fstream>
 #include <ctype.h>
+#include <atomic>
 #include <jsoncpp/json/json.h>
 #include "oj_filemodel.hpp"
 #include "oj_mysqlmodel.hpp"
@@ -32,30 +33,24 @@ namespace oj_control
         {}
 
         void IncLoad()
-        {
-            if (_plock) _plock->lock();
-            _load++;
-            if (_plock) _plock->unlock();
+        {         
+            ++_load;
         }
 
         void DecLoad()
         {
-            if (_plock) _plock->lock();
-            _load--;           
-            if (_plock) _plock->unlock();
+            --_load;           
         }
 
         void ResetLoad()
         {
-            if(_plock) _plock->lock();
             _load = 0;
-            if(_plock) _plock->unlock();
         }
 
         size_t GetLoad()
         {
             size_t load;
-             if(_plock) _plock->lock();
+            if(_plock) _plock->lock();
             load = _load;
             if(_plock) _plock->unlock();
 
@@ -105,7 +100,7 @@ namespace oj_control
     private:
         std::string _compile_server_ip;
         size_t _compile_server_port;
-        size_t _load;                       // 编译服务的负载
+        std::atomic<size_t> _load;                       // 编译服务的负载
         std::mutex* _plock;                 // mutex禁止拷贝的，使用指针
     };
 
