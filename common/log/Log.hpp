@@ -5,12 +5,12 @@
 namespace LogModule
 {
     // 1、提供获取指定日志器的全局接口（避免用户自己操作单例对象）
-    Logger::ptr GetLogger(const std::string& loggername)
+    inline Logger::ptr GetLogger(const std::string& loggername)
     {
         return LoggerManager::getInstance().GetLogger(loggername);
     }
 
-    Logger::ptr RootLogger()
+    inline Logger::ptr RootLogger()
     {
         return LoggerManager::getInstance().RootLogger();
     }

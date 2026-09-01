@@ -55,6 +55,83 @@ int main()
         resp.set_content(result_json,"application/json;charset=utf-8");
     });
 
+    // 注册 / 登录
+    svr.Post("/api/register",[&ctrl](const Request& req,Response& resp){
+        std::string out_json;
+        ctrl.Register(req.body,&out_json);
+        resp.set_content(out_json,"application/json; charset=utf-8");
+    });
+    svr.Post("/api/login",[&ctrl](const Request& req,Response& resp){
+        std::string out_json;
+        ctrl.Login(req.body,&out_json);
+        resp.set_content(out_json,"application/json; charset=utf-8");
+    });
+
+    // 管理员邀请码(注册负责人用)
+    svr.Post("/api/admin/invite",[&ctrl](const Request& req,Response& resp){
+        std::string out_json;
+        ctrl.ResetAdminInvite(req.get_header_value("Authorization"),&out_json);
+        resp.set_content(out_json,"application/json; charset=utf-8");
+    });
+
+    // 小组管理
+    svr.Post("/api/groups",[&ctrl](const Request& req,Response& resp){
+        std::string out_json;
+        ctrl.CreateGroup(req.get_header_value("Authorization"),req.body,&out_json);
+        resp.set_content(out_json,"application/json; charset=utf-8");
+    });
+    svr.Post("/api/groups/join",[&ctrl](const Request& req,Response& resp){
+        std::string out_json;
+        ctrl.JoinGroup(req.get_header_value("Authorization"),req.body,&out_json);
+        resp.set_content(out_json,"application/json; charset=utf-8");
+    });
+    svr.Post(R"(/api/groups/(\d+)/invite)",[&ctrl](const Request& req,Response& resp){
+        std::string out_json;
+        ctrl.ResetInviteCode(req.get_header_value("Authorization"),req.matches[1],&out_json);
+        resp.set_content(out_json,"application/json; charset=utf-8");
+    });
+
+    // 角色管理
+    svr.Put(R"(/api/users/(\d+)/role)",[&ctrl](const Request& req,Response& resp){
+        std::string out_json;
+        ctrl.SetUserRole(req.get_header_value("Authorization"),req.matches[1],req.body,&out_json);
+        resp.set_content(out_json,"application/json; charset=utf-8");
+    });
+
+    // 题目管理 API
+    svr.Post("/api/questions",[&ctrl](const Request& req,Response& resp){
+        std::string out_json;
+        ctrl.AddQuestion(req.get_header_value("Authorization"),req.body,&out_json);
+        resp.set_content(out_json,"application/json; charset=utf-8");
+    });
+    svr.Put(R"(/api/questions/(\d+))",[&ctrl](const Request& req,Response& resp){
+        std::string out_json;
+        ctrl.UpdateQuestion(req.get_header_value("Authorization"),req.matches[1],req.body,&out_json);
+        resp.set_content(out_json,"application/json; charset=utf-8");
+    });
+    svr.Delete(R"(/api/questions/(\d+))",[&ctrl](const Request& req,Response& resp){
+        std::string out_json;
+        ctrl.DeleteQuestion(req.get_header_value("Authorization"),req.matches[1],&out_json);
+        resp.set_content(out_json,"application/json; charset=utf-8");
+    });
+
+    // 题目管理页面
+    svr.Get("/question_manage",[&ctrl](const Request& req,Response& resp){
+        std::string html;
+        ctrl.QuestionManage(req.get_header_value("Authorization"),&html);
+        resp.set_content(html,"text/html; charset=utf-8");
+    });
+    svr.Get("/question_manage/edit",[&ctrl](const Request& req,Response& resp){
+        std::string html;
+        ctrl.QuestionEdit(req.get_header_value("Authorization"),"",&html);
+        resp.set_content(html,"text/html; charset=utf-8");
+    });
+    svr.Get(R"(/question_manage/edit/(\d+))",[&ctrl](const Request& req,Response& resp){
+        std::string html;
+        ctrl.QuestionEdit(req.get_header_value("Authorization"),req.matches[1],&html);
+        resp.set_content(html,"text/html; charset=utf-8");
+    });
+
     svr.set_base_dir("./wwwroot");
     svr.listen("0.0.0.0",8080);
 

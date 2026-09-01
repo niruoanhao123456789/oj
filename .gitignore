@@ -71,6 +71,10 @@ Testing/
 # temp
 compile_server/temp/
 
+# gtest unit tests
+tests/unit/unit_tests
+tests/unit/*.o
+
 # packaged output (make output)
 output/
 

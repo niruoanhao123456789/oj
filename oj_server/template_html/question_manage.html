@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>题目管理 - 在线OJ</title>
+    <style>
+        :root {
+            --primary: #0EA5E9;
+            --primary-dark: #0369A1;
+            --accent: #F97316;
+            --accent-soft: #FFF7ED;
+            --bg: #F0F9FF;
+            --card: #FFFFFF;
+            --text: #0C4A6E;
+            --muted: #64748B;
+            --border: #E0F2FE;
+            --shadow: 0 8px 30px rgba(14, 165, 233, 0.12);
+            --danger: #DC2626;
+            --danger-soft: #FEF2F2;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        .bg-decor {
+            position: fixed; inset: 0; z-index: -1;
+            background:
+                radial-gradient(40% 30% at 15% 12%, rgba(56, 189, 248, 0.18), transparent 70%),
+                radial-gradient(35% 30% at 88% 8%, rgba(249, 115, 22, 0.10), transparent 70%),
+                radial-gradient(45% 35% at 80% 90%, rgba(56, 189, 248, 0.14), transparent 70%),
+                linear-gradient(180deg, #F0F9FF 0%, #E0F2FE 100%);
+        }
+        .header {
+            position: sticky; top: 14px; z-index: 50;
+            max-width: 1020px; margin: 14px auto 0;
+            padding: 10px 22px;
+            display: flex; align-items: center; justify-content: space-between;
+            background: rgba(255,255,255,0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+        }
+        .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); }
+        .brand svg { color: var(--primary); }
+        .brand h1 { font-size: 20px; font-weight: 700; letter-spacing: 1px; }
+        .brand h1 em { font-style: normal; color: var(--accent); }
+        .header nav { display: flex; gap: 10px; align-items: center; }
+        .header nav a {
+            color: var(--text); text-decoration: none; font-size: 14px;
+            padding: 7px 16px; border-radius: 10px;
+            background: rgba(14,165,233,0.08); border: 1px solid var(--border);
+            transition: all .25s ease;
+        }
+        .header nav a:hover { background: var(--primary); color: #fff; box-shadow: 0 4px 14px rgba(14,165,233,0.35); }
+        .header nav a.add { background: var(--accent-soft); border-color: rgba(249,115,22,0.25); }
+        .header nav a.add:hover { background: var(--accent); color: #fff; box-shadow: 0 4px 14px rgba(249,115,22,0.35); }
+
+        .container { max-width: 1020px; margin: 40px auto 20px; padding: 0 20px; }
+        .hero { text-align: center; padding: 12px 0 26px; }
+        .hero .eyebrow {
+            display: inline-block; font-size: 13px; color: var(--primary-dark);
+            background: rgba(14,165,233,0.10); border: 1px solid var(--border);
+            padding: 4px 14px; border-radius: 999px; margin-bottom: 12px; letter-spacing: 2px;
+        }
+        .hero h2 { font-family: "Noto Serif SC", "Songti SC", "SimSun", serif; font-size: 30px; font-weight: 700; letter-spacing: 2px; }
+        .hero .quote { margin-top: 8px; color: var(--muted); font-size: 14px; }
+
+        .table-wrap {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 18px; box-shadow: var(--shadow); overflow: hidden;
+        }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 14px 20px; text-align: left; border-bottom: 1px solid #F0F7FC; }
+        th { background: #F6FBFE; color: var(--muted); font-size: 13px; font-weight: 600; letter-spacing: 1px; }
+        tbody tr:hover { background: #F0F9FF; }
+        .rank {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 3px 14px; border-radius: 999px; font-size: 13px; font-weight: 600;
+            background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0;
+        }
+        .rank::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+        .rank.rank-mid { background: #FFF7ED; color: #C2410C; border-color: #FED7AA; }
+        .rank.rank-hard { background: #FEF2F2; color: #B91C1C; border-color: #FECACA; }
+        .scope-badge {
+            display: inline-block; padding: 3px 12px; border-radius: 999px; font-size: 12px;
+            background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE;
+        }
+        .scope-badge.group { background: #F5F3FF; color: #6D28D9; border-color: #DDD6FE; }
+        .ops a, .ops button {
+            display: inline-block; font-size: 13px; padding: 5px 14px; border-radius: 8px;
+            border: 1px solid var(--border); text-decoration: none; cursor: pointer; transition: all .2s ease;
+        }
+        .ops a { color: var(--primary-dark); background: #F0F9FF; }
+        .ops a:hover { background: var(--primary); color: #fff; }
+        .ops button { color: var(--danger); background: var(--danger-soft); margin-left: 8px; }
+        .ops button:hover { background: var(--danger); color: #fff; }
+        .empty { text-align: center; color: var(--muted); padding: 44px 20px; font-size: 15px; }
+        footer { text-align: center; color: var(--muted); font-size: 13px; padding: 26px 20px 34px; }
+        footer .line { color: rgba(14,165,233,0.4); }
+        .msg { text-align: center; padding: 10px; font-size: 14px; display: none; }
+        .msg.error { color: var(--danger); }
+        @media (max-width: 640px) { th, td { padding: 10px 12px; } .hero h2 { font-size: 24px; } }
+    </style>
+</head>
+<body>
+    <div class="bg-decor"></div>
+
+    <header class="header">
+        <a class="brand" href="/">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            <h1>在线<em>OJ</em></h1>
+        </a>
+        <nav>
+            <a href="/all_questions">题目列表</a>
+            <a class="add" href="/question_manage/edit" data-fetch="1">＋ 新增题目</a>
+        </nav>
+    </header>
+
+    <div class="container">
+        <div class="hero">
+            <span class="eyebrow">题目管理</span>
+            <h2>题库管理</h2>
+            <p class="quote">发布、修改与删除题目，让好题被更多人看见</p>
+        </div>
+
+        <div class="msg" id="msg"></div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>题号</th>
+                        <th>题目</th>
+                        <th>难度</th>
+                        <th>可见范围</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{#question_list}}
+                    <tr id="row-{{id}}">
+                        <td>{{id}}</td>
+                        <td>{{title}}</td>
+                        <td><span class="rank" data-rank="{{rank}}">{{rank}}</span></td>
+                        <td><span class="scope-badge" data-scope="{{scope}}">{{scope}}</span></td>
+                        <td class="ops">
+                            <a href="/question_manage/edit/{{id}}" data-fetch="1">编辑</a>
+                            <button onclick="delQuestion('{{id}}')">删除</button>
+                        </td>
+                    </tr>
+                    {{/question_list}}
+                </tbody>
+            </table>
+            <div class="empty" id="empty" style="display:none;">暂无可管理的题目</div>
+        </div>
+
+        <footer><span class="line">✦</span> 每一次精心打磨，都是为了更好的评测体验 <span class="line">✦</span></footer>
+    </div>
+
+    <script>
+        var TOKEN = (function(){ try { return localStorage.getItem('oj_token') || ''; } catch(e){ return ''; } })();
+        var HDR = TOKEN ? { 'Authorization': 'Bearer ' + TOKEN } : {};
+
+        (function applyRankColors(){
+            var ranks = document.querySelectorAll('.rank');
+            for (var i = 0; i < ranks.length; i++) {
+                var t = ranks[i].getAttribute('data-rank') || ranks[i].textContent;
+                if (t.indexOf('中') !== -1) { ranks[i].classList.add('rank-mid'); }
+                else if (t.indexOf('难') !== -1) { ranks[i].classList.add('rank-hard'); }
+            }
+            var scope = document.querySelectorAll('.scope-badge');
+            for (var j = 0; j < scope.length; j++) {
+                var s = scope[j].getAttribute('data-scope') || '';
+                if (s !== '全局') { scope[j].classList.add('group'); }
+            }
+            var empty = document.getElementById('empty');
+            if (empty && document.querySelectorAll('tbody tr').length === 0) { empty.style.display = 'block'; }
+        })();
+
+        // 带 Authorization 头的页面内跳转(新增/编辑)
+        document.addEventListener('click', function (e) {
+            var a = e.target.closest ? e.target.closest('a[data-fetch]') : null;
+            if (!a) return;
+            if (!TOKEN) { showMsg('请先登录后再管理题目'); e.preventDefault(); return; }
+            e.preventDefault();
+            fetch(a.href, { headers: HDR })
+                .then(function (r) { return r.text(); })
+                .then(function (html) {
+                    document.open(); document.write(html); document.close();
+                })
+                .catch(function () { showMsg('页面加载失败'); });
+        });
+
+        function showMsg(t) {
+            var m = document.getElementById('msg');
+            m.className = 'msg error'; m.style.display = 'block'; m.textContent = t;
+        }
+
+        function delQuestion(id) {
+            if (!confirm('确定删除题目 ' + id + ' 吗？该操作不可恢复。')) return;
+            var xhr = new XMLHttpRequest();
+            xhr.open('DELETE', '/api/questions/' + id, true);
+            if (TOKEN) xhr.setRequestHeader('Authorization', 'Bearer ' + TOKEN);
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    var data = {};
+                    try { data = JSON.parse(xhr.responseText); } catch (e) {}
+                    if (data.ok) {
+                        var row = document.getElementById('row-' + id);
+                        if (row) row.remove();
+                        var empty = document.getElementById('empty');
+                        if (empty && document.querySelectorAll('tbody tr').length === 0) { empty.style.display = 'block'; }
+                    } else {
+                        showMsg(data.message || '删除失败');
+                    }
+                } else if (xhr.readyState === 4) {
+                    showMsg('删除失败: HTTP ' + xhr.status);
+                }
+            };
+            xhr.send();
+        }
+    </script>
+</body>
+</html>

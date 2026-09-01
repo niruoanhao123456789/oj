@@ -7,10 +7,14 @@
 #include <fstream>
 #include <ctype.h>
 #include <atomic>
+#include <cstdlib>
+#include <algorithm>
+#include <unordered_map>
 #include <jsoncpp/json/json.h>
 #include "oj_filemodel.hpp"
 #include "oj_mysqlmodel.hpp"
 #include "oj_view.hpp"
+#include "user/oj_user_model.hpp"
 #include "../common/log/Log.hpp"
 #include "../common/Util.hpp"
 
@@ -31,6 +35,29 @@ namespace oj_control
         ,_load(0)
         ,_plock(nullptr)
         {}
+
+        // std::atomic 使 Machine 不可拷贝, 提供移动构造以支持 vector 扩容
+        Machine(Machine&& other) noexcept
+        :_compile_server_ip(std::move(other._compile_server_ip))
+        ,_compile_server_port(other._compile_server_port)
+        ,_load(other._load.load())
+        ,_plock(other._plock)
+        {
+            other._plock = nullptr;
+        }
+
+        Machine& operator=(Machine&& other) noexcept
+        {
+            if(this != &other)
+            {
+                _compile_server_ip = std::move(other._compile_server_ip);
+                _compile_server_port = other._compile_server_port;
+                _load = other._load.load();
+                _plock = other._plock;
+                other._plock = nullptr;
+            }
+            return *this;
+        }
 
         void IncLoad()
         {         
@@ -134,14 +161,14 @@ namespace oj_control
                     continue;
                 }
 
-                Machine machine;
+                _machines.emplace_back();
+                Machine& machine = _machines.back();
                 machine.SetCompileServerIp(tokens[0]);
                 machine.SetCompileServerPort(std::atoll(tokens[1].c_str()));
                 machine.SetMachineLoad(0);
                 machine.SetMutex(new std::mutex());
 
-                _online.emplace_back(_machines.size());
-                _machines.emplace_back(machine);
+                _online.emplace_back(_machines.size() - 1);
             }
 
             in.close();
@@ -326,9 +353,629 @@ namespace oj_control
             }
         }
 
+        // ---------- 用户 / 角色 / 小组 (见 SPEC.md §5.5 ~ §5.10) ----------
+
+        static std::string WriteJson(const Json::Value& value)
+        {
+            Json::FastWriter writer;
+            return writer.write(value);
+        }
+
+        // 校验 Authorization: Bearer <token>, 解析当前登录用户
+        bool GetSessionUser(const std::string& auth,oj_user_model::User* user)
+        {
+            if(auth.compare(0,7,"Bearer ") != 0)
+                return false;
+            return _user_model.GetSession(auth.substr(7),user);
+        }
+
+        // 需要登录, 失败时向 out 写入错误信息并返回 false
+        bool RequireUser(const std::string& auth,oj_user_model::User* user,Json::Value* out)
+        {
+            if(!GetSessionUser(auth,user))
+            {
+                (*out)["ok"] = false;
+                (*out)["message"] = "未登录或登录已过期";
+                return false;
+            }
+            return true;
+        }
+
+        // POST /api/register —— 注册用户: 可选普通用户或负责人(负责人需管理员邀请码)
+        void Register(const std::string& in_json,std::string* out_json)
+        {
+            Json::Value out;
+            Json::Reader reader;
+            Json::Value in;
+            reader.parse(in_json,in);
+            std::string username = in["username"].asString();
+            std::string password = in["password"].asString();
+            std::string role = in["role"].asString();
+            std::string invite_code = in["invite_code"].asString();
+            if(role != "user" && role != "leader")
+                role = "user";
+            if(username.empty() || password.empty())
+            {
+                out["ok"] = false;
+                out["message"] = "用户名和密码不能为空";
+                *out_json = WriteJson(out);
+                return;
+            }
+            if(role == "leader")
+            {
+                if(invite_code.empty())
+                {
+                    out["ok"] = false;
+                    out["message"] = "注册负责人需填写管理员邀请码";
+                    *out_json = WriteJson(out);
+                    return;
+                }
+                if(!_user_model.IsValidAdminInviteCode(invite_code))
+                {
+                    out["ok"] = false;
+                    out["message"] = "管理员邀请码无效";
+                    *out_json = WriteJson(out);
+                    return;
+                }
+            }
+            std::string actual_role;
+            if(!_user_model.Register(username,password,role,&actual_role))
+            {
+                out["ok"] = false;
+                out["message"] = "注册失败: 用户名可能已存在";
+                *out_json = WriteJson(out);
+                return;
+            }
+            out["ok"] = true;
+            out["message"] = "注册成功";
+            out["role"] = actual_role;
+            *out_json = WriteJson(out);
+        }
+
+        // POST /api/login —— 登录校验并签发 token
+        void Login(const std::string& in_json,std::string* out_json)
+        {
+            Json::Value out;
+            Json::Reader reader;
+            Json::Value in;
+            reader.parse(in_json,in);
+            std::string username = in["username"].asString();
+            std::string password = in["password"].asString();
+            oj_user_model::User user;
+            if(!_user_model.Login(username,password,&user))
+            {
+                out["ok"] = false;
+                out["message"] = "用户名或密码错误";
+                *out_json = WriteJson(out);
+                return;
+            }
+            std::string token = _user_model.CreateSession(user);
+            out["ok"] = true;
+            out["token"] = token;
+            out["username"] = user._username;
+            out["role"] = user._role;
+            *out_json = WriteJson(out);
+        }
+
+        // PUT /api/users/{id}/role —— 管理员修改其他用户角色
+        void SetUserRole(const std::string& auth,const std::string& target_id,const std::string& in_json,std::string* out_json)
+        {
+            Json::Value out;
+            oj_user_model::User cur;
+            if(!RequireUser(auth,&cur,&out))
+            {
+                *out_json = WriteJson(out);
+                return;
+            }
+            if(cur._role != "admin")
+            {
+                out["ok"] = false;
+                out["message"] = "需要管理员权限";
+                *out_json = WriteJson(out);
+                return;
+            }
+            Json::Reader reader;
+            Json::Value in;
+            reader.parse(in_json,in);
+            std::string role = in["role"].asString();
+            if(role != "admin" && role != "leader" && role != "user")
+            {
+                out["ok"] = false;
+                out["message"] = "非法的角色类型";
+                *out_json = WriteJson(out);
+                return;
+            }
+            int id = std::atoi(target_id.c_str());
+            if(id == cur._id)
+            {
+                out["ok"] = false;
+                out["message"] = "不能修改自己的角色";
+                *out_json = WriteJson(out);
+                return;
+            }
+            if(!_user_model.UpdateRole(id,role))
+            {
+                out["ok"] = false;
+                out["message"] = "修改失败: 用户不存在";
+                *out_json = WriteJson(out);
+                return;
+            }
+            out["ok"] = true;
+            out["message"] = "角色已修改";
+            *out_json = WriteJson(out);
+        }
+
+        // POST /api/groups —— 负责人或管理员创建小组(可创建多个)
+        void CreateGroup(const std::string& auth,const std::string& in_json,std::string* out_json)
+        {
+            Json::Value out;
+            oj_user_model::User cur;
+            if(!RequireUser(auth,&cur,&out))
+            {
+                *out_json = WriteJson(out);
+                return;
+            }
+            if(cur._role != "leader" && cur._role != "admin")
+            {
+                out["ok"] = false;
+                out["message"] = "需要负责人或管理员身份";
+                *out_json = WriteJson(out);
+                return;
+            }
+            Json::Reader reader;
+            Json::Value in;
+            reader.parse(in_json,in);
+            std::string name = in["name"].asString();
+            if(name.empty())
+            {
+                out["ok"] = false;
+                out["message"] = "小组名称不能为空";
+                *out_json = WriteJson(out);
+                return;
+            }
+            oj_user_model::Group g;
+            if(!_user_model.CreateGroup(name,cur._id,&g))
+            {
+                out["ok"] = false;
+                out["message"] = "创建小组失败";
+                *out_json = WriteJson(out);
+                return;
+            }
+            out["ok"] = true;
+            out["group_id"] = g._id;
+            out["invite_code"] = g._invite_code;
+            *out_json = WriteJson(out);
+        }
+
+        // POST /api/admin/invite —— 管理员重置负责人注册邀请码(旧码失效)
+        void ResetAdminInvite(const std::string& auth,std::string* out_json)
+        {
+            Json::Value out;
+            oj_user_model::User cur;
+            if(!RequireUser(auth,&cur,&out))
+            {
+                *out_json = WriteJson(out);
+                return;
+            }
+            if(cur._role != "admin")
+            {
+                out["ok"] = false;
+                out["message"] = "需要管理员权限";
+                *out_json = WriteJson(out);
+                return;
+            }
+            std::string code;
+            if(!_user_model.ResetAdminInvite(&code))
+            {
+                out["ok"] = false;
+                out["message"] = "重置失败";
+                *out_json = WriteJson(out);
+                return;
+            }
+            out["ok"] = true;
+            out["invite_code"] = code;
+            *out_json = WriteJson(out);
+        }
+
+        // POST /api/groups/join —— 普通用户凭邀请码加入小组
+        void JoinGroup(const std::string& auth,const std::string& in_json,std::string* out_json)
+        {
+            Json::Value out;
+            oj_user_model::User cur;
+            if(!RequireUser(auth,&cur,&out))
+            {
+                *out_json = WriteJson(out);
+                return;
+            }
+            if(cur._role != "user")
+            {
+                out["ok"] = false;
+                out["message"] = "需要普通用户身份";
+                *out_json = WriteJson(out);
+                return;
+            }
+            Json::Reader reader;
+            Json::Value in;
+            reader.parse(in_json,in);
+            std::string code = in["invite_code"].asString();
+            if(code.empty())
+            {
+                out["ok"] = false;
+                out["message"] = "邀请码不能为空";
+                *out_json = WriteJson(out);
+                return;
+            }
+            oj_user_model::Group g;
+            if(!_user_model.GetGroupByInvite(code,&g))
+            {
+                out["ok"] = false;
+                out["message"] = "邀请码无效";
+                *out_json = WriteJson(out);
+                return;
+            }
+            if(_user_model.IsMember(cur._id,g._id))
+            {
+                out["ok"] = false;
+                out["message"] = "你已在该小组中";
+                *out_json = WriteJson(out);
+                return;
+            }
+            if(!_user_model.JoinGroup(cur._id,g._id))
+            {
+                out["ok"] = false;
+                out["message"] = "加入小组失败";
+                *out_json = WriteJson(out);
+                return;
+            }
+            out["ok"] = true;
+            out["group_id"] = g._id;
+            *out_json = WriteJson(out);
+        }
+
+        // POST /api/groups/{id}/invite —— 负责人重置邀请码(旧码失效)
+        void ResetInviteCode(const std::string& auth,const std::string& group_id,std::string* out_json)
+        {
+            Json::Value out;
+            oj_user_model::User cur;
+            if(!RequireUser(auth,&cur,&out))
+            {
+                *out_json = WriteJson(out);
+                return;
+            }
+            int gid = std::atoi(group_id.c_str());
+            oj_user_model::Group g;
+            if(!_user_model.GetGroupById(gid,&g))
+            {
+                out["ok"] = false;
+                out["message"] = "小组不存在";
+                *out_json = WriteJson(out);
+                return;
+            }
+            if(g._owner_id != cur._id)
+            {
+                out["ok"] = false;
+                out["message"] = "仅小组负责人可重置邀请码";
+                *out_json = WriteJson(out);
+                return;
+            }
+            std::string code;
+            if(!_user_model.ResetInviteCode(gid,&code))
+            {
+                out["ok"] = false;
+                out["message"] = "重置失败";
+                *out_json = WriteJson(out);
+                return;
+            }
+            out["ok"] = true;
+            out["invite_code"] = code;
+            *out_json = WriteJson(out);
+        }
+
+        // ---------- 题目管理 (见 SPEC.md §5.12 ~ §5.15) ----------
+
+        static bool ParseQuestionJson(const Json::Value& in,Question* q,std::string* err)
+        {
+            q->_title = in["title"].asString();
+            q->_rank = Question::StringToRank(in["rank"].asString());
+            q->_desc = in["desc"].asString();
+            q->_header = in["header"].asString();
+            q->_answer = in["answer"].asString();
+            q->_tail = in["tail"].asString();
+            q->_cpu_limit = in["cpu_limit"].asUInt64();
+            q->_mem_limit = in["mem_limit"].asUInt64();
+            q->_scope = in["scope"].asString();
+            if(q->_scope.empty())
+                q->_scope = "global";
+            if(q->_title.empty())
+            {
+                *err = "题目标题不能为空";
+                return false;
+            }
+            if(q->_rank == Question::UNKONW)
+            {
+                *err = "非法的难度";
+                return false;
+            }
+            return true;
+        }
+
+        // 判断 user_id 是否拥有 group_id 小组
+        bool LeaderOwnsGroup(int user_id,int group_id)
+        {
+            oj_user_model::Group g;
+            return group_id > 0 && _user_model.GetGroupById(group_id,&g) && g._owner_id == user_id;
+        }
+
+        std::string MessagePage(const std::string& title,const std::string& message)
+        {
+            return "<!DOCTYPE html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\"><title>" + title + " - 在线OJ</title></head>"
+                "<body style=\"font-family:sans-serif;text-align:center;padding-top:80px;background:#F0F9FF;color:#0C4A6E;\">"
+                "<h2>" + title + "</h2><p>" + message + "</p>"
+                "<p><a href=\"/all_questions\" style=\"color:#0369A1;\">返回题目列表</a></p>"
+                "</body></html>";
+        }
+
+        // POST /api/questions —— 发布题目(管理员全局 / 负责人组内)
+        void AddQuestion(const std::string& auth,const std::string& in_json,std::string* out_json)
+        {
+            Json::Value out;
+            oj_user_model::User cur;
+            if(!RequireUser(auth,&cur,&out))
+            {
+                *out_json = WriteJson(out);
+                return;
+            }
+            if(cur._role != "admin" && cur._role != "leader")
+            {
+                out["ok"] = false;
+                out["message"] = "需要管理员或负责人权限";
+                *out_json = WriteJson(out);
+                return;
+            }
+            Json::Reader reader;
+            Json::Value in;
+            reader.parse(in_json,in);
+            Question q;
+            std::string err;
+            if(!ParseQuestionJson(in,&q,&err))
+            {
+                out["ok"] = false;
+                out["message"] = err;
+                *out_json = WriteJson(out);
+                return;
+            }
+            if(cur._role == "leader" && !LeaderOwnsGroup(cur._id,std::atoi(q._scope.c_str())))
+            {
+                out["ok"] = false;
+                out["message"] = "负责人仅能向自己的小组发布题目";
+                *out_json = WriteJson(out);
+                return;
+            }
+            if(!_model.AddQuestion(&q))
+            {
+                out["ok"] = false;
+                out["message"] = "发布题目失败";
+                *out_json = WriteJson(out);
+                return;
+            }
+            out["ok"] = true;
+            out["id"] = q._id;
+            *out_json = WriteJson(out);
+        }
+
+        // PUT /api/questions/{id} —— 修改题目(负责人仅限本组)
+        void UpdateQuestion(const std::string& auth,const std::string& id,const std::string& in_json,std::string* out_json)
+        {
+            Json::Value out;
+            oj_user_model::User cur;
+            if(!RequireUser(auth,&cur,&out))
+            {
+                *out_json = WriteJson(out);
+                return;
+            }
+            if(cur._role != "admin" && cur._role != "leader")
+            {
+                out["ok"] = false;
+                out["message"] = "需要管理员或负责人权限";
+                *out_json = WriteJson(out);
+                return;
+            }
+            Question old;
+            _model.GetOneQuestion(id,&old);
+            if(old._id.empty())
+            {
+                out["ok"] = false;
+                out["message"] = "题目不存在";
+                *out_json = WriteJson(out);
+                return;
+            }
+            if(cur._role == "leader" && !LeaderOwnsGroup(cur._id,std::atoi(old._scope.c_str())))
+            {
+                out["ok"] = false;
+                out["message"] = "负责人仅能修改本组题目";
+                *out_json = WriteJson(out);
+                return;
+            }
+            Json::Reader reader;
+            Json::Value in;
+            reader.parse(in_json,in);
+            Question q;
+            std::string err;
+            if(!ParseQuestionJson(in,&q,&err))
+            {
+                out["ok"] = false;
+                out["message"] = err;
+                *out_json = WriteJson(out);
+                return;
+            }
+            if(cur._role == "leader" && !LeaderOwnsGroup(cur._id,std::atoi(q._scope.c_str())))
+            {
+                out["ok"] = false;
+                out["message"] = "负责人仅能向自己的小组发布题目";
+                *out_json = WriteJson(out);
+                return;
+            }
+            q._id = id;
+            if(!_model.UpdateQuestion(q))
+            {
+                out["ok"] = false;
+                out["message"] = "修改题目失败";
+                *out_json = WriteJson(out);
+                return;
+            }
+            out["ok"] = true;
+            out["message"] = "题目已修改";
+            *out_json = WriteJson(out);
+        }
+
+        // DELETE /api/questions/{id} —— 删除题目(负责人仅限本组)
+        void DeleteQuestion(const std::string& auth,const std::string& id,std::string* out_json)
+        {
+            Json::Value out;
+            oj_user_model::User cur;
+            if(!RequireUser(auth,&cur,&out))
+            {
+                *out_json = WriteJson(out);
+                return;
+            }
+            if(cur._role != "admin" && cur._role != "leader")
+            {
+                out["ok"] = false;
+                out["message"] = "需要管理员或负责人权限";
+                *out_json = WriteJson(out);
+                return;
+            }
+            Question old;
+            _model.GetOneQuestion(id,&old);
+            if(old._id.empty())
+            {
+                out["ok"] = false;
+                out["message"] = "题目不存在";
+                *out_json = WriteJson(out);
+                return;
+            }
+            if(cur._role == "leader" && !LeaderOwnsGroup(cur._id,std::atoi(old._scope.c_str())))
+            {
+                out["ok"] = false;
+                out["message"] = "负责人仅能删除本组题目";
+                *out_json = WriteJson(out);
+                return;
+            }
+            if(!_model.DeleteQuestion(id))
+            {
+                out["ok"] = false;
+                out["message"] = "删除题目失败";
+                *out_json = WriteJson(out);
+                return;
+            }
+            out["ok"] = true;
+            out["message"] = "题目已删除";
+            *out_json = WriteJson(out);
+        }
+
+        // GET /question_manage —— 题目管理列表页(管理员见全部, 负责人仅见本组)
+        void QuestionManage(const std::string& auth,std::string* html)
+        {
+            oj_user_model::User cur;
+            if(!GetSessionUser(auth,&cur) || (cur._role != "admin" && cur._role != "leader"))
+            {
+                *html = MessagePage("无法访问","需要管理员或负责人登录后才能管理题目。");
+                return;
+            }
+
+            std::vector<Question> all;
+            _model.GetAllQuestions(&all);
+
+            std::vector<oj_user_model::Group> groups;
+            _user_model.GetAllGroups(&groups);
+            std::unordered_map<std::string,std::string> scope_labels;
+            scope_labels["global"] = "全局";
+            for(const auto& g : groups)
+                scope_labels[std::to_string(g._id)] = g._name;
+
+            std::vector<Question> visible;
+            if(cur._role == "admin")
+            {
+                visible = all;
+            }
+            else
+            {
+                std::vector<int> my_gids;
+                for(const auto& g : groups)
+                    if(g._owner_id == cur._id)
+                        my_gids.push_back(g._id);
+                for(const auto& q : all)
+                {
+                    int gid = std::atoi(q._scope.c_str());
+                    if(gid > 0 && std::find(my_gids.begin(),my_gids.end(),gid) != my_gids.end())
+                        visible.push_back(q);
+                }
+            }
+            std::sort(visible.begin(),visible.end(),[](const Question& a,const Question& b){
+                return std::atoll(a._id.c_str()) < std::atoll(b._id.c_str());
+            });
+
+            _view.QuestionManageExpandHtml(visible,scope_labels,html);
+        }
+
+        // GET /question_manage/edit 与 /question_manage/edit/{id} —— 新增/编辑题目表单页
+        void QuestionEdit(const std::string& auth,const std::string& id,std::string* html)
+        {
+            oj_user_model::User cur;
+            if(!GetSessionUser(auth,&cur) || (cur._role != "admin" && cur._role != "leader"))
+            {
+                *html = MessagePage("无法访问","需要管理员或负责人登录后才能管理题目。");
+                return;
+            }
+
+            Question q;
+            q._rank = Question::EASY;
+            q._cpu_limit = 1;
+            q._mem_limit = 30;
+            std::string qid = id;
+            if(!id.empty())
+            {
+                _model.GetOneQuestion(id,&q);
+                if(q._id.empty())
+                {
+                    *html = MessagePage("题目不存在","该题目不存在或已被删除。");
+                    return;
+                }
+                if(cur._role == "leader" && !LeaderOwnsGroup(cur._id,std::atoi(q._scope.c_str())))
+                {
+                    *html = MessagePage("无法访问","负责人仅能管理本组题目。");
+                    return;
+                }
+            }
+
+            std::vector<oj_view::ScopeOption> options;
+            if(cur._role == "admin")
+            {
+                options.push_back({"global","全局",q._scope == "global"});
+                std::vector<oj_user_model::Group> groups;
+                _user_model.GetAllGroups(&groups);
+                for(const auto& g : groups)
+                    options.push_back({std::to_string(g._id),"小组"+std::to_string(g._id)+"·"+g._name,q._scope == std::to_string(g._id)});
+            }
+            else
+            {
+                std::vector<oj_user_model::Group> groups;
+                _user_model.GetGroupsByOwner(cur._id,&groups);
+                if(groups.empty())
+                {
+                    *html = MessagePage("无法发布","你还没有小组，请先创建小组后再发布组内题目。");
+                    return;
+                }
+                for(const auto& g : groups)
+                    options.push_back({std::to_string(g._id),"小组"+std::to_string(g._id)+"·"+g._name,q._scope == std::to_string(g._id)});
+            }
+            _view.QuestionEditExpandHtml(q,qid,options,html);
+        }
+
     private:
         Model _model;
         oj_view::View _view;
         LoadBlance _loadblance;
+        oj_user_model::UserModel _user_model;
     };
 }

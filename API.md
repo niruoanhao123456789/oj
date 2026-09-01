@@ -42,8 +42,8 @@ HTTP API reference for the load-balanced online judge. Two services expose HTTP 
 
 | Role | Permissions |
 | --- | --- |
-| `admin` (super admin) | Highest permission: change other users' roles, publish **global** questions (visible to everyone), view/manage **all** questions. |
-| `leader` | Owns a group; invites others via a replaceable invite code; publishes questions **within the group** (visible only to group members). |
+| `admin` (super admin) | Highest permission: change other users' roles, generate/reset the **leader-registration invite code**, publish **global** questions (visible to everyone), view/manage **all** questions, and create **multiple** groups like a leader. |
+| `leader` | Registered as a leader using the admin invite code (registration-time only); creates **multiple** groups, invites others via each group's replaceable invite code, publishes questions **within the group** (visible only to group members). |
 | `user` | Joins groups with an invite code; sees global questions + questions of groups they joined; submits code. No question/role management. |
 
 Visibility of questions:
@@ -219,11 +219,17 @@ curl -X POST http://localhost:8080/judge/1 \
 
 ### POST /api/register
 
-**Request body:** `{"username": "<string>", "password": "<string>"}`
+**Request body:** `{"username": "<string>", "password": "<string>", "role": "user" | "leader", "invite_code": "<admin-invite>"}`
 
-Creates a user with role `user`. The password is stored as `Hash(password + salt)` where `salt` is the registration timestamp.
+Creates a user. `role` is optional and defaults to `user`. Choosing `role = "leader"` requires a valid admin `invite_code` (from `POST /api/admin/invite`); it is validated at registration time only. The first registered user (empty `users` table) automatically becomes `admin`. The password is stored as `Hash(password + salt)` where `salt` is the registration timestamp.
 
-**Response:** `200 OK` — `{"ok": true, "message": "..."}`
+**Response:** `200 OK` — `{"ok": true, "message": "...", "role": "user" | "leader"}`
+
+### POST /api/admin/invite
+
+Regenerates the admin invite code used to register leaders (admin only). The old code is invalidated immediately.
+
+**Response:** `200 OK` — `{"ok": true, "invite_code": "NEWCODE"}`
 
 ### POST /api/login
 
@@ -235,7 +241,7 @@ The returned token is carried on subsequent protected requests as `Authorization
 
 ### POST /api/groups
 
-Creates a group (leader only).
+Creates a group (leader or admin). Multiple groups are allowed per user.
 
 **Request body:** `{"name": "<string>"}`
 
