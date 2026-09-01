@@ -3,6 +3,7 @@
 #include <jsoncpp/json/json.h>
 #include <unistd.h>
 #include <cassert>
+#include <sstream>
 #include "../common/Util.hpp"
 #include "compiler.hpp"
 #include "runner.hpp"
@@ -62,6 +63,35 @@ namespace oj_compile_run
             return desc;
         }
 
+        // 解析隐藏测试驱动的 PASSRATE 协议: 末尾输出一行 "PASSRATE <passed>/<total>"
+        // 成功时从 stdout 中移除该行(不展示给用户), 并回填通过数与总案例数
+        static bool ParsePassRate(std::string* stdout_text, int* passed, int* total)
+        {
+            std::istringstream iss(*stdout_text);
+            std::string line;
+            std::ostringstream keep;
+            bool found = false;
+            while(std::getline(iss, line))
+            {
+                if(line.compare(0, 9, "PASSRATE ") == 0)
+                {
+                    std::string nums = line.substr(9);
+                    size_t slash = nums.find('/');
+                    if(slash != std::string::npos)
+                    {
+                        *passed = std::atoi(nums.substr(0, slash).c_str());
+                        *total = std::atoi(nums.substr(slash + 1).c_str());
+                        found = true;
+                        continue;   // 该行不返回给用户
+                    }
+                }
+                keep << line << "\n";
+            }
+            if(found)
+                *stdout_text = keep.str();
+            return found;
+        }
+
         /*
          * 输入:
          * code： 用户提交的代码
@@ -76,10 +106,11 @@ namespace oj_compile_run
          * 选填：
          * stdout: 我的程序运行完的结果
          * stderr: 我的程序运行完的错误结果
+         * pass_count / total_count: 运行成功时, 隐藏测试驱动按 PASSRATE 协议上报的通过数/总案例数
          *
          * 参数：
          * in_json: {"code": "#include...", "input": "","cpu_limit":1, "mem_limit":10240}
-         * out_json: {"status":"0", "reason":"","stdout":"","stderr":"",}
+         * out_json: {"status":"0", "reason":"","stdout":"","stderr":"","pass_count":3,"total_count":5}
          */
         static void Start(const std::string &in_json, std::string *out_json)
         {
@@ -148,6 +179,12 @@ namespace oj_compile_run
             {
                 std::string _stdout;
                 oj_util::File::ReadFile(&_stdout,oj_util::Path::Stdout(filename),true);
+                int passed = 0, total = 0;
+                if(ParsePassRate(&_stdout,&passed,&total))
+                {
+                    out_value["pass_count"] = passed;
+                    out_value["total_count"] = total;
+                }
                 out_value["stdout"] = _stdout;
 
                 std::string _stderr;

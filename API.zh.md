@@ -17,8 +17,8 @@
 - [GET /question/{id}](#get-questionid)
 - [POST /judge/{id}](#post-judgeid)
 - [POST /compile_and_run（内部接口）](#post-compile_and_run内部接口)
-- [认证与小组（规划中）](#认证与小组规划中)
-- [题目管理（规划中）](#题目管理规划中)
+- [认证与小组](#认证与小组)
+- [题目管理](#题目管理)
 - [评测状态码](#评测状态码)
 - [静态资源](#静态资源)
 - [负载均衡相关说明](#负载均衡相关说明)
@@ -32,13 +32,13 @@
 - 题目页面返回 `text/html; charset=utf-8`。
 - 题目编号为数字，网关使用正则 `(\d+)` 进行匹配。
 - 除非特别说明，路径中的 `id` 均指**数据库中的题目编号**（如 `1`、`2`）。
-- **认证（规划中）：** 受保护接口需要 `POST /api/login` 获取的 token，通过 `Authorization: Bearer <token>` 携带。
+- **认证：** 受保护接口需要 `POST /api/login` 获取的 token，通过 `Authorization: Bearer <token>` 携带。
 
 ---
 
 ## 角色与权限
 
-> 角色/小组体系为**规划中的特性**（见 [SPEC.md 第14节](SPEC.md#14-待办清单todo)），下述依赖该体系的接口尚未接入网关。
+> 角色/小组体系**已接入网关**（实现于 `oj_server/user/` 的 `oj_user_model.hpp` + `oj_passwd.hpp`），完整落地记录见 [SPEC.md 第15节](SPEC.md#15-功能落地记录)。
 
 | 角色 | 权限 |
 | --- | --- |
@@ -68,9 +68,7 @@
 - `200 OK`
 - `Content-Type: text/html; charset=utf-8`
 
-页面渲染当前用户可见题目（全局题 + 所在组题目）的表格，每一行都链接到 `GET /question/{id}`。该接口不返回 JSON 内容。
-
-> 可见性过滤为**规划中**特性；当前页面列出存储中的所有题目。
+页面渲染当前用户可见题目（全局题 + 所在组题目）的表格，每一行都链接到 `GET /question/{id}`。该接口不返回 JSON 内容。匿名访客仅见全局题；管理员见全部题目；负责人与普通用户按所属小组过滤。
 
 **示例**
 
@@ -95,9 +93,7 @@ curl http://localhost:8080/all_questions
 - `200 OK`
 - `Content-Type: text/html; charset=utf-8`
 
-页面内嵌题目数据与模板代码；在编辑器中提交后，浏览器会向 `/judge/{id}` 发起 `POST`（见下）。
-
-> 访问控制为**规划中**特性：不可见的题目将返回无权访问提示。
+页面内嵌题目数据与模板代码；在编辑器中提交后，浏览器会向 `/judge/{id}` 发起 `POST`（见下）。当前用户不可见的题目（非全局、不在所在组、且非管理员/负责人本组）会返回无权访问提示。
 
 **示例**
 
@@ -109,7 +105,7 @@ curl http://localhost:8080/question/1
 
 ## POST /judge/{id}
 
-提交用户代码并返回评测结果（JSON）。网关会先拼接完整程序（`header + code + tail`），选择负载最低的编译服务器，并转发评测任务。
+提交用户代码并返回评测结果（JSON）。网关会先拼接完整程序（`header + code + tail`，`tail` 为**隐藏测试用例**，答题页不对用户展示），选择负载最低的编译服务器，并转发评测任务。
 
 **路径：** `POST /judge/{id}`
 
@@ -147,10 +143,14 @@ curl -X POST http://localhost:8080/judge/1 \
 | --- | --- | --- |
 | `status` | 整数 | 评测状态码（见[状态码](#评测状态码)）。 |
 | `reason` | 字符串 | 人类可读的结果描述（中文）。 |
-| `stdout` | 字符串 | 程序标准输出。仅在 `status == 0` 时返回。 |
+| `stdout` | 字符串 | 程序标准输出。仅在 `status == 0` 时返回（已剔除 PASSRATE 行）。 |
 | `stderr` | 字符串 | 程序标准错误。仅在 `status == 0` 时返回。 |
+| `pass_count` | 整数 | 通过的隐藏案例数。仅当 `status == 0` 且驱动按 PASSRATE 协议上报时返回。 |
+| `total_count` | 整数 | 隐藏案例总数。仅当 `status == 0` 且驱动按 PASSRATE 协议上报时返回。 |
 
-> **规划中：** 仅允许对当前用户可见的题目提交评测。
+> **可见性约束：** 仅允许对当前用户可见的题目提交评测（匿名访客仅可评测全局题）。
+>
+> **结果呈现（仿 LeetCode）：** `status != 0` 时按现有错误返回展示；`status == 0` 且含 `pass_count`/`total_count` 时，答题页只显示「测试用例通过: X / Y（百分比）」，**不展示具体通过的案例明细**。
 
 **成功响应示例**
 
@@ -188,7 +188,7 @@ curl -X POST http://localhost:8080/judge/1 \
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| `code` | 字符串 | 是 | **完整的**源码（header + 用户代码 + tail）。 |
+| `code` | 字符串 | 是 | **完整的**源码（`header + 用户代码 + tail`，`tail` 为隐藏测试用例）。 |
 | `input` | 字符串 | 否 | 程序标准输入（缺省为空）。 |
 | `cpu_limit` | 整数 | 是 | CPU 时间限制（秒）。 |
 | `mem_limit` | 整数 | 是 | 内存限制（MB）。 |
@@ -209,21 +209,29 @@ curl -X POST http://localhost:8080/judge/1 \
 - `200 OK`（即使被评测程序运行出错也返回 200，结果由 `status` 字段描述）
 - `Content-Type: application/json; charset=utf-8`
 
-**响应体** —— 与 [`/judge/{id}`](#post-judgeid) 相同。
+**响应体** —— 与 [`/judge/{id}`](#post-judgeid) 相同（含 `pass_count`/`total_count`）。
+
+> **PASSRATE 协议：** 隐藏测试驱动（`tail`）以 `RUN_TEST(name, cond)` 累计通过数与总数，`main` 末尾只输出一行 `PASSRATE <passed>/<total>`（不逐条打印）。编译服务器将该行解析为 `pass_count`/`total_count`，并从用户可见 `stdout` 中剔除。
 
 ---
 
-## 认证与小组（规划中）
+## 认证与小组
 
-> 以下接口均为**规划中**特性（见 [SPEC.md 第14节](SPEC.md#14-待办清单todo)），尚未接入网关。JSON 进 / JSON 出，`application/json; charset=utf-8`。
+> 以下接口**均已接入网关**（完整落地记录见 [SPEC.md 第15节](SPEC.md#15-功能落地记录)）。JSON 进 / JSON 出，`application/json; charset=utf-8`。对应页面在 `GET /register`、`GET /login`、`GET /group_manage` 提供。
 
 ### POST /api/register
 
-**请求体：** `{"username": "<字符串>", "password": "<字符串>"}`
+**请求体：** `{"username": "<字符串>", "password": "<字符串>", "role": "user" | "leader", "invite_code": "<管理员邀请码>"}`
 
-创建角色为 `user` 的用户。密码以 `Hash(password + salt)` 存储，`salt` 为注册时的时间戳。
+创建用户。`role` 可选，默认 `user`；选择 `role = "leader"` 时必须提供有效的管理员邀请码 `invite_code`（来自 `POST /api/admin/invite`，仅在注册时校验）。`users` 表为空时首个注册用户自动成为 `admin`。密码以 `Hash(password + salt)` 存储，`salt` 为注册时的时间戳。
 
-**响应：** `200 OK` —— `{"ok": true, "message": "..."}`
+**响应：** `200 OK` —— `{"ok": true, "message": "...", "role": "user" | "leader"}`
+
+### POST /api/admin/invite
+
+管理员重新生成用于注册负责人的管理员邀请码（仅管理员）。旧码立即失效。
+
+**响应：** `200 OK` —— `{"ok": true, "invite_code": "新邀请码"}`
 
 ### POST /api/login
 
@@ -235,7 +243,7 @@ curl -X POST http://localhost:8080/judge/1 \
 
 ### POST /api/groups
 
-创建小组（仅负责人）。
+创建小组（负责人或管理员，可创建多个）。
 
 **请求体：** `{"name": "<字符串>"}`
 
@@ -265,9 +273,9 @@ curl -X POST http://localhost:8080/judge/1 \
 
 ---
 
-## 题目管理（规划中）
+## 题目管理
 
-> 新增/修改/删除题目的**规划中**接口。前端页面均为纯 **HTML + CSS + JS**，由 `oj_server/oj_view.hpp` 中的 `View` 类（ctemplate）渲染；表单内容由 JS 打包为 JSON 提交到下列接口。网关按当前启用的模型持久化 —— MySQL `questions` 表（含 `scope` 列）或基于文件的 `questions/` 模型（6 列 `questions.list` + `questions/{id}/`）。
+> 新增/修改/删除题目的接口。前端页面均为纯 **HTML + CSS + JS**，由 `oj_server/oj_view.hpp` 中的 `View` 类（ctemplate）渲染；表单内容由 JS 打包为 JSON 提交到下列接口。网关按当前启用的模型持久化 —— MySQL `questions` 表（含 `scope` 列）或基于文件的 `questions/` 模型（6 列 `questions.list` + `questions/{id}/`）。
 
 ### POST /api/questions
 
@@ -282,10 +290,12 @@ curl -X POST http://localhost:8080/judge/1 \
 | `desc` | 字符串 | 否 | 题目描述 |
 | `header` | 字符串 | 否 | 隐藏前置代码 |
 | `answer` | 字符串 | 否 | 编辑器模板代码 |
-| `tail` | 字符串 | 否 | 测试用例驱动代码 |
+| `tail` | 字符串 | 是 | **隐藏测试用例**（判题唯一依据，答题页对用户不可见；遵循 PASSRATE 协议） |
 | `cpu_limit` | 整数 | 是 | 秒 |
 | `mem_limit` | 整数 | 是 | MB |
 | `scope` | 字符串 | 是 | `global` 或小组 id |
+
+> `tail` 在新增与修改时均为**必填**（缺失时返回 `{"message": "必须设置不可见测试案例(tail)"}`）。
 
 **响应：** `200 OK` —— `{"ok": true, "id": 3}`
 

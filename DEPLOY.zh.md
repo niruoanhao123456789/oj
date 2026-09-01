@@ -19,7 +19,7 @@
 - [9. 新增题目](#9-新增题目)
 - [10. 运维与维护](#10-运维与维护)
 - [11. 故障排查](#11-故障排查)
-- [12. 角色、小组与题目管理（规划中）](#12-角色小组与题目管理规划中)
+- [12. 角色、小组与题目管理](#12-角色小组与题目管理)
 
 ---
 
@@ -45,6 +45,7 @@
 | ctemplate | `libctemplate-dev` | `-lctemplate` |
 | MySQL 客户端 | `libmysqlclient-dev` | `-lmysqlclient` |
 | Boost（头文件） | `libboost-dev` | — |
+| gtest | `libgtest-dev` | `-lgtest -lgtest_main`（仅单元测试） |
 | pthread | glibc | `-lpthread` |
 
 安装示例（Debian/Ubuntu）：
@@ -52,7 +53,7 @@
 ```bash
 sudo apt update
 sudo apt install -y g++ make mysql-server libjsoncpp-dev libcpp-httplib-dev \
-    libctemplate-dev libmysqlclient-dev libboost-dev
+    libctemplate-dev libmysqlclient-dev libboost-dev libgtest-dev
 ```
 
 ## 3. 数据库初始化
@@ -70,13 +71,13 @@ CREATE TABLE IF NOT EXISTS questions (
     desc_text  TEXT,
     header     TEXT,                    -- 隐藏头，拼接在用户代码之前
     answer     TEXT,                    -- 编辑器中展示的模板代码
-    tail       TEXT,                    -- 测试用例，拼接在用户代码之后
+    tail       TEXT,                    -- 隐藏测试用例(判题唯一依据), 拼接在用户代码之后, 对用户不可见
     cpu_limit  INT DEFAULT 1,           -- 秒
     mem_limit  INT DEFAULT 30,          -- MB
     scope      VARCHAR(16) NOT NULL DEFAULT 'global'   -- global 或小组 id
 );
 
--- 用户 / 角色 / 小组（规划中的特性，见 SPEC.md 第14节）
+-- 用户 / 角色 / 小组（已接入网关，见 SPEC.md 第15节）
 CREATE TABLE IF NOT EXISTS users (
     id            INT PRIMARY KEY AUTO_INCREMENT,
     username      VARCHAR(64) NOT NULL UNIQUE,
@@ -155,6 +156,16 @@ make
 ```
 
 构建产物为 `compile_server/compile_server` 与 `oj_server/oj_server` 两个可执行文件。顶层 `make clean` 可清理它们（对 `compile_server` 还会清理 `temp/` 下的临时文件）。
+
+### 单元测试
+
+`make test` 会构建并运行 `tests/unit/` 下的 **Google Test** 套件（22 个用例、8 个测试套件）并打印汇总：
+
+```bash
+make test
+```
+
+该套件覆盖密码哈希（`test_passwd.cpp`）、两模型共用的 `Question::Rank` 转换逻辑（`test_question.cpp`）、文件模型（`test_filemodel.cpp`）、MySQL 模型（`test_mysqlmodel.cpp`，含防注入转义；MySQL 不可达时自动跳过）与内存会话存储（`test_session.cpp`）。需要安装 `libgtest-dev`。
 
 ### 打包发布
 
@@ -236,7 +247,9 @@ mkdir -p logfiles          # 如缺失则创建
 
 网关监听 `0.0.0.0:8080`：
 - `GET /`、`GET /all_questions`、`GET /question/{id}` —— HTML 页面
+- `GET /register`、`GET /login`、`GET /group_manage`、`GET /question_manage`（+ `/question_manage/edit[/{id}]`）—— 账号 / 小组 / 题目管理页面
 - `POST /judge/{id}` —— 判题提交（JSON）
+- `POST/PUT/DELETE /api/...` —— 注册 / 登录 / 小组 / 角色 / 题目管理 JSON 接口
 
 ## 8. 验证部署
 
@@ -272,13 +285,15 @@ curl -X POST http://localhost:8080/judge/1 \
 2. 设计题目时注意：
    - `header` 为隐藏头（如 `#include` 行与辅助函数），
    - `answer` 为在线编辑器中展示的模板代码，
-   - `tail` 为测试驱动（包含 `main` 与测试用例），与用户实现的 `solve(...)` 链接。
-3. `scope` 设为 `global`（全体可见）或**小组 id**（仅该组组长与成员可见 —— 规划中的特性）。
+   - `tail` 为**隐藏测试驱动**（判题唯一依据）：以 `RUN_TEST(name, cond)` 累计通过数与总数，`main` 末尾只输出一行 `PASSRATE <passed>/<total>`；答题页不会展示给用户。
+3. `scope` 设为 `global`（全体可见）或**小组 id**（仅该组组长与成员可见）。
 4. 网关每次请求都会查询 MySQL，因此 `/all_questions` 能立即看到新题目，无需重启。
+
+> 新增/修改题目时 `tail` 为**必填**（缺失时接口返回「必须设置不可见测试案例(tail)」）。
 
 > 仓库中还附带一套基于文件的替代模型（`oj_filemodel.hpp`），从 `oj_server/questions/` + `questions.list` 读取题目。它**并非**当前启用模型；如需切换，请修改 `oj_control.hpp` 与 `oj_view.hpp` 中的 `using namespace` 行。`questions.list` 每行为 `id title rank cpu_limit mem_limit scope`（6 列；缺省 `scope` 视为 `global`），每题目录 `questions/{id}/` 内含 `desc.txt`、`header.cpp`、`answer.cpp`、`tail.cpp`。
 
-> **规划中：** 未来将通过 `POST /api/questions`、`PUT /api/questions/{id}`、`DELETE /api/questions/{id}` 接口（配合 `template_html/` 下、由 `oj_server/oj_view.hpp` 的 `View` 类渲染的 HTML+CSS+JS 管理页面）在界面中新增/修改/删除题目，持久化到 MySQL 或文件模型。
+> **替代方式 —— 通过网页界面：** 管理员与组内负责人也可通过 `GET /question_manage` 与 `GET /question_manage/edit[/{id}]` 页面（纯 HTML + CSS + JS，由 `oj_server/oj_view.hpp` 的 `View` 类渲染）新增/修改/删除题目，页面提交到 `POST /api/questions`、`PUT /api/questions/{id}`、`DELETE /api/questions/{id}`，并持久化到当前启用模型（MySQL 或文件模型）。
 
 ## 10. 运维与维护
 
@@ -307,26 +322,28 @@ curl -X POST http://localhost:8080/judge/1 \
 | 每次判题都返回 `status == -2` | 编译服务器内部错误 —— 查看其 `logfiles/` 下的日志。 |
 | 端口 `8080` 被占用 | 修改 `oj_server.cpp` 中的监听端口并重新编译。 |
 
-## 12. 角色、小组与题目管理（规划中）
+## 12. 角色、小组与题目管理
 
-> 该特性集为**规划中**（见 [SPEC.md 第14节](SPEC.md#14-待办清单todo)），尚未接入网关。数据库表已在[数据库初始化](#3-数据库初始化)中定义；工作目录 `oj_server/user/` 与 `oj_server/question_manage/` 目前为占位。所有前端页面均使用纯 HTML + CSS + JS。
+> 用户账号、角色与小组**已接入网关**（实现于 `oj_server/user/` 的 `oj_user_model.hpp` + `oj_passwd.hpp`）；题目管理（`/api/questions` 与 `GET /question_manage` 页面）与可见性过滤也已全部实现。完整落地记录见 [SPEC.md 第15节](SPEC.md#15-功能落地记录)。所有前端页面均使用纯 HTML + CSS + JS。
 
 **角色**
 
 | 角色 | 权限 |
 | --- | --- |
-| `admin`（管理员） | 修改其他用户角色等级；发布全局题；可见并管理所有题目 |
-| `leader`（负责人） | 拥有小组；通过可更换的邀请码拉人；在组内发布题目 |
+| `admin`（管理员） | 修改其他用户角色等级；生成/重置负责人注册邀请码；发布全局题；可见并管理所有题目；可像负责人一样创建多个小组 |
+| `leader`（负责人） | 注册时凭管理员邀请码成为负责人；可创建**多个**小组，通过小组邀请码拉人；在组内发布/修改/删除题目 |
 | `user`（普通用户） | 凭邀请码加入小组；可见全局题 + 所在组题目；提交评测 |
 
-**实现后的典型操作**
+**典型操作流程**
 
-1. 注册/种子化第一个 `admin`（见[数据库初始化](#3-数据库初始化)中被注释的 `INSERT`）。
-2. `POST /api/register` 创建普通用户；`POST /api/login` 返回 token（受保护调用携带 `Authorization: Bearer <token>`）。
-3. 管理员提升用户：`PUT /api/users/{id}/role`。
-4. 负责人创建小组：`POST /api/groups` → 返回 `invite_code`；可随时用 `POST /api/groups/{id}/invite` 重置。
-5. 用户凭 `POST /api/groups/join` `{"invite_code": "..."}` 加入小组。
-6. 管理员/负责人通过 `GET /question_manage` 界面（或直接 `POST /api/questions`）发布题目，`scope = global` 或小组 id；用 `PUT`/`DELETE /api/questions/{id}` 修改/删除。
-7. `GET /all_questions`、`GET /question/{id}`、`POST /judge/{id}` 按当前用户的角色与所属小组过滤。
+1. 注册第一个账号 —— 空 `users` 表时自动成为 `admin`（引导）。
+2. 管理员生成负责人注册邀请码：`POST /api/admin/invite`（需管理员身份）。
+3. 注册普通用户，或用 `POST /api/register` `{"username": "...", "password": "...", "role": "leader", "invite_code": "<管理员邀请码>"}` 注册**负责人**。
+4. `POST /api/login` 返回 `{token, username, role}`；受保护调用携带 `Authorization: Bearer <token>`。
+5. 负责人/管理员创建小组：`POST /api/groups` `{"name": "..."}` → 返回 `group_id` + `invite_code`（可创建多个）；可随时用 `POST /api/groups/{id}/invite` 重置小组邀请码。
+6. 用户凭 `POST /api/groups/join` `{"invite_code": "..."}` 加入小组。
+7. 管理员用 `PUT /api/users/{id}/role` 调整用户角色。
+8. 管理员/负责人通过 `GET /question_manage` 界面（或直接 `POST /api/questions`）发布题目，`scope = global` 或小组 id；用 `PUT`/`DELETE /api/questions/{id}` 修改/删除。
+9. `GET /all_questions`、`GET /question/{id}`、`POST /judge/{id}` 按当前用户的角色与所属小组过滤可见性。
 
 **密码** 以 `Hash(password + salt)` 存储，盐值为注册时的时间戳 —— 不以明文落库。不引入第三方加密库。

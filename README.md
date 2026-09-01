@@ -31,6 +31,7 @@ An online judge (OJ) platform built around a **load-balanced judging architectur
 7. Multi-process, multi-threading
 8. MySQL C connector
 9. Ace front-end online editor
+10. Google Test (gtest) — unit testing
 
 ## Dependencies
 
@@ -46,6 +47,7 @@ An online judge (OJ) platform built around a **load-balanced judging architectur
 | ctemplate | `libctemplate-dev` | Template-driven HTML rendering (`-lctemplate`) |
 | MySQL client | `libmysqlclient-dev` | MySQL C API (`-lmysqlclient`) |
 | Boost (headers) | `libboost-dev` | String-splitting utilities |
+| gtest | `libgtest-dev` | Unit tests (`-lgtest -lgtest_main`) |
 | pthread | glibc | Multi-threading (`-lpthread`) |
 
 Example install (Debian/Ubuntu):
@@ -53,12 +55,10 @@ Example install (Debian/Ubuntu):
 ```bash
 sudo apt update
 sudo apt install -y g++ make mysql-server libjsoncpp-dev libcpp-httplib-dev \
-    libctemplate-dev libmysqlclient-dev libboost-dev
+    libctemplate-dev libmysqlclient-dev libboost-dev libgtest-dev
 ```
 
 > For detailed deployment steps (database setup, build, and startup) see [DEPLOY.md](DEPLOY.md).
-
-## Features
 
 ## Features
 
@@ -69,9 +69,10 @@ sudo apt install -y g++ make mysql-server libjsoncpp-dev libcpp-httplib-dev \
 - **Question bank backed by MySQL** — question metadata, hidden test code, and limits are stored in a `questions` table (a file-based model is also included as an alternative).
 - **Template-driven HTML pages** — rendered with the ctemplate library from `template_html/`.
 - **Structured logging** — an async, time-rolling logger writes logs to `logfiles/`.
-- **Roles & groups** *(planned, see [SPEC.md §14](SPEC.md#14-待办清单todo))* — three roles: **admin** (super admin, manages roles, publishes global questions), **leader** (owns a group, invites members via a replaceable invite code, publishes group-only questions), and **user** (joins groups with an invite code, sees global + own-group questions).
-- **Question management** *(planned)* — admins/leaders create, edit, and delete questions through HTML+CSS+JS pages (rendered by the `View` class in `oj_server/oj_view.hpp`); the form content is posted as JSON and persisted into MySQL or the file-based `questions/` model.
-- **Timestamp-salted password hashing** *(planned)* — passwords are stored as `Hash(password + salt)` with the registration timestamp as the salt; never stored in plaintext.
+- **Roles & groups** — three roles: **admin** (super admin, manages roles, generates the leader-registration invite code, publishes global questions), **leader** (owns groups, invites members via replaceable invite codes, publishes group-only questions), and **user** (joins groups with an invite code, sees global + own-group questions).
+- **Question management** — admins/leaders create, edit, and delete questions through HTML+CSS+JS pages (rendered by the `View` class in `oj_server/oj_view.hpp`); the form content is posted as JSON and persisted into MySQL or the file-based `questions/` model.
+- **Timestamp-salted password hashing** — passwords are stored as `Hash(password + salt)` with the registration timestamp as the salt; never stored in plaintext.
+- **Unit testing with Google Test** — `make test` builds and runs the gtest suite in `tests/unit/` (22 test cases across 8 suites), covering password hashing, both question models, and the in-memory session store.
 
 ## Architecture
 
@@ -82,8 +83,8 @@ The system is split into two services:
                     │               oj_server (gateway)            │
                     │  • serves HTML pages        (port 8080)      │
                     │  • reads questions from MySQL                │
-                    │  • user accounts / roles / groups (planned)  │
-                    │  • question management (planned)             │
+                    │  • user accounts / roles / groups            │
+                    │  • question management                       │
                     │  • load-balances /judge/{id} requests        │
                     └───────┬──────────────┬──────────────┬────────┘
                             │              │              │
@@ -100,10 +101,10 @@ The system is split into two services:
 
 1. The user opens `/question/{id}` and clicks **Submit**.
 2. The browser `POST`s `{"code": ...}` to `/judge/{id}` on `oj_server`.
-3. `oj_server` loads the question from MySQL and builds the full source: `header.cpp` (hidden) + user code + `tail.cpp` (test cases).
+3. `oj_server` loads the question from MySQL and builds the full source: `header.cpp` (hidden) + user code + `tail.cpp` (**hidden test cases**, not visible to users).
 4. The load balancer picks the compile server with the **minimum current load** and forwards `{"code", "input", "cpu_limit", "mem_limit"}` to its `/compile_and_run` endpoint.
-5. The compile server compiles with `g++`, runs the binary under `setrlimit` CPU/memory limits, and returns a JSON result.
-6. The result is passed back to the browser and rendered as `AC / WA / TLE`-style feedback.
+5. The compile server compiles with `g++`, runs the binary under `setrlimit` CPU/memory limits, and returns a JSON result (including `pass_count`/`total_count` per the PASSRATE protocol).
+6. The result is passed back to the browser and rendered **LeetCode-style**: existing error returns plus "Testcases passed: X / Y (percentage)" — individual passing cases are never listed.
 
 ## Directory Layout
 
@@ -121,20 +122,25 @@ The system is split into two services:
 │   └── temp/                   # Temp source/executable files (git-ignored)
 ├── oj_server/                  # Web gateway (port 8080)
 │   ├── oj_server.cpp           # HTTP routes + static file serving
-│   ├── oj_control.hpp          # Load balancer + judge orchestration
+│   ├── oj_control.hpp          # Load balancer + judge orchestration + auth/perms
 │   ├── oj_mysqlmodel.hpp       # MySQL question model (active)
 │   ├── oj_filemodel.hpp        # File-based question model (alternative)
 │   ├── oj_view.hpp             # ctemplate HTML rendering
 │   ├── conf/service_machine.conf   # List of compile-server endpoints
-│   ├── user/                   # User management content (auth / roles / groups) — placeholder
-│   ├── question_manage/        # Question management content (create / update / delete) — placeholder
-│   ├── template_html/          # ctemplate templates
+│   ├── database/               # SQL scripts (oj.sql / upgrade.sql)
+│   ├── user/                   # Auth / roles / groups (oj_passwd.hpp, oj_user_model.hpp)
+│   ├── template_html/          # ctemplate templates (incl. register/login/group_manage/question_manage pages)
 │   ├── wwwroot/                # Static assets (landing page, etc.)
 │   ├── questions/              # File-model sample questions
 │   └── makefile
-├── makefile                    # Top-level build / packaging entry point
+├── tests/unit/                 # Google Test unit tests (make test)
+│   ├── makefile
+│   ├── test_env.hpp
+│   └── test_*.cpp              # passwd / question / filemodel / mysqlmodel / session
+├── makefile                    # Top-level build / test / packaging entry point
 ├── output/                     # Distributable bundle generated by `make output`
 ├── README.md                   # This document (EN) / README.zh.md (ZH)
+├── SPEC.md                     # Software specification (ZH)
 ├── API.md                      # HTTP API reference (EN) / API.zh.md (ZH)
 ├── DEPLOY.md                   # Deployment guide (EN) / DEPLOY.zh.md (ZH)
 └── LICENSE
@@ -167,6 +173,7 @@ The top-level `makefile` drives building and packaging for both services:
 | Target | Purpose |
 | --- | --- |
 | `make` / `make all` | Builds `compile_server` and `oj_server` in their own directories. |
+| `make test` | Builds and runs the Google Test unit suite in `tests/unit/` (`./unit_tests`). |
 | `make output` | Assembles a complete, self-contained program bundle under `output/`, ready to publish or send elsewhere. |
 | `make clean` | Removes the build artifacts of both services and deletes the whole `output/` directory. |
 
@@ -180,6 +187,7 @@ output/
 └── oj_server/
     ├── oj_server               # Gateway binary
     ├── conf/                   # service_machine.conf
+    ├── database/               # SQL scripts (oj.sql / upgrade.sql)
     ├── questions/              # File-model sample questions
     ├── template_html/          # ctemplate templates
     └── wwwroot/                # Static assets
@@ -191,6 +199,7 @@ The bundle is self-contained: after copying `output/` to another host and settin
 
 | Document | English | 简体中文 |
 | --- | --- | --- |
+| Software specification | — | [SPEC.md](SPEC.md) |
 | API reference | [API.md](API.md) | [API.zh.md](API.zh.md) |
 | Deployment guide | [DEPLOY.md](DEPLOY.md) | [DEPLOY.zh.md](DEPLOY.zh.md) |
 

@@ -19,7 +19,7 @@ This guide walks through deploying the load-balanced online judge, from prerequi
 - [9. Adding New Questions](#9-adding-new-questions)
 - [10. Operations & Maintenance](#10-operations--maintenance)
 - [11. Troubleshooting](#11-troubleshooting)
-- [12. Roles, Groups & Question Management (planned)](#12-roles-groups--question-management-planned)
+- [12. Roles, Groups & Question Management](#12-roles-groups--question-management)
 
 ---
 
@@ -45,6 +45,7 @@ Two kinds of processes must be running:
 | ctemplate | `libctemplate-dev` | `-lctemplate` |
 | MySQL client | `libmysqlclient-dev` | `-lmysqlclient` |
 | Boost (headers) | `libboost-dev` | — |
+| gtest | `libgtest-dev` | `-lgtest -lgtest_main` (unit tests only) |
 | pthread | glibc | `-lpthread` |
 
 Example install (Debian/Ubuntu):
@@ -52,7 +53,7 @@ Example install (Debian/Ubuntu):
 ```bash
 sudo apt update
 sudo apt install -y g++ make mysql-server libjsoncpp-dev libcpp-httplib-dev \
-    libctemplate-dev libmysqlclient-dev libboost-dev
+    libctemplate-dev libmysqlclient-dev libboost-dev libgtest-dev
 ```
 
 ## 3. Database Setup
@@ -72,13 +73,13 @@ CREATE TABLE IF NOT EXISTS questions (
     desc_text  TEXT,
     header     TEXT,                    -- hidden prologue, appended before user code
     answer     TEXT,                    -- starter code shown in the editor
-    tail       TEXT,                    -- test cases, appended after user code
+    tail       TEXT,                    -- hidden test cases (sole judging basis), appended after user code; invisible to users
     cpu_limit  INT DEFAULT 1,           -- seconds
     mem_limit  INT DEFAULT 30,          -- MB
     scope      VARCHAR(16) NOT NULL DEFAULT 'global'   -- global or a group id
 );
 
--- Users / roles / groups (planned feature, see SPEC.md §14)
+-- Users / roles / groups (wired into the gateway, see SPEC.md §15)
 CREATE TABLE IF NOT EXISTS users (
     id            INT PRIMARY KEY AUTO_INCREMENT,
     username      VARCHAR(64) NOT NULL UNIQUE,
@@ -166,6 +167,16 @@ make
 
 This produces `compile_server/compile_server` and `oj_server/oj_server` executables. `make clean` (top level) removes them and, for `compile_server`, the temporary files under `temp/`.
 
+### Unit Tests
+
+`make test` builds and runs the **Google Test** suite in `tests/unit/` (22 test cases across 8 suites) and prints a summary:
+
+```bash
+make test
+```
+
+The suite covers password hashing (`test_passwd.cpp`), the shared `Question::Rank` logic (`test_question.cpp`), the file-based model (`test_filemodel.cpp`), the MySQL model — including escape-against-injection — (`test_mysqlmodel.cpp`, skipped automatically when MySQL is unreachable), and the in-memory session store (`test_session.cpp`). Requires `libgtest-dev`.
+
 ### Packaging for Distribution
 
 The top-level `make output` target assembles a complete, self-contained program bundle under `output/` — everything needed to run the system on another host — ready to publish or send:
@@ -246,7 +257,9 @@ mkdir -p logfiles          # if missing
 
 The gateway serves on `0.0.0.0:8080`:
 - `GET /` and `GET /all_questions`, `GET /question/{id}` — HTML pages
+- `GET /register`, `GET /login`, `GET /group_manage`, `GET /question_manage` (+ `/question_manage/edit[/{id}]`) — account / group / question-management pages
 - `POST /judge/{id}` — judge submission (JSON)
+- `POST/PUT/DELETE /api/...` — register / login / groups / roles / question-management JSON APIs
 
 ## 8. Verify the Deployment
 
@@ -282,13 +295,15 @@ Also check the logs under `compile_server/*/logfiles/` and `oj_server/logfiles/`
 2. Design the question so that:
    - `header` contains the hidden prologue (e.g. `#include` lines and helpers),
    - `answer` is the starter code shown in the online editor,
-   - `tail` contains the test driver (`main` with the test cases) that links with `solve(...)`.
-3. Set `scope` to `global` (visible to everyone) or to a **group id** (visible only to that group's leader and members — planned feature).
-4. Restart the gateway so it re-reads the database. (The gateway queries MySQL on every request, so new questions appear immediately for `/all_questions`; no restart is strictly required.)
+   - `tail` contains the **hidden test driver** (the sole judging basis) — it accumulates passes via `RUN_TEST(name, cond)` and prints exactly one final line `PASSRATE <passed>/<total>`; it is never shown to users on the question page.
+3. Set `scope` to `global` (visible to everyone) or to a **group id** (visible only to that group's leader and members).
+4. The gateway queries MySQL on every request, so new questions appear immediately for `/all_questions`; no restart is required.
+
+> `tail` is **required** when creating/editing a question (the API returns `必须设置不可见测试案例(tail)` if missing).
 
 > A file-based alternative model (`oj_filemodel.hpp`) also ships in the repo — it reads questions from `oj_server/questions/` + `questions.list`. It is **not** the active model; switch by editing the `using namespace` lines in `oj_control.hpp` and `oj_view.hpp`. Each line of `questions.list` is `id title rank cpu_limit mem_limit scope` (6 columns; a missing `scope` defaults to `global`), and each `questions/{id}/` directory holds `desc.txt`, `header.cpp`, `answer.cpp`, `tail.cpp`.
 
-> **Planned:** the `POST /api/questions`, `PUT /api/questions/{id}`, and `DELETE /api/questions/{id}` endpoints (with the HTML+CSS+JS management pages under `template_html/`, rendered by the `View` class in `oj_server/oj_view.hpp`) will create/edit/delete questions through the UI, persisting to MySQL or the file model.
+> **Alternative — via the web UI:** admins and group leaders can also create/edit/delete questions through `GET /question_manage` and the `GET /question_manage/edit[/{id}]` pages (plain HTML + CSS + JS, rendered by the `View` class in `oj_server/oj_view.hpp`), which submit to `POST /api/questions`, `PUT /api/questions/{id}`, and `DELETE /api/questions/{id}`. These persist into the active model (MySQL or the file model).
 
 ## 10. Operations & Maintenance
 
@@ -319,7 +334,7 @@ Also check the logs under `compile_server/*/logfiles/` and `oj_server/logfiles/`
 
 ## 12. Roles, Groups & Question Management
 
-> User accounts, roles and groups are **wired into the gateway** via the JSON API in `oj_server/user/` (`oj_user_model.hpp` + `oj_passwd.hpp`); see [SPEC.md §14](SPEC.md#14-待办清单todo) for the remaining items. Question management (`/api/questions` and the `GET /question_manage` pages) and visibility filtering are still **planned**. All frontend pages use plain HTML + CSS + JS.
+> User accounts, roles and groups are **wired into the gateway** via the JSON API in `oj_server/user/` (`oj_user_model.hpp` + `oj_passwd.hpp`); question management (`/api/questions` and the `GET /question_manage` pages) and visibility filtering are also fully implemented. See [SPEC.md §15](SPEC.md#15-功能落地记录) for the full implementation record. All frontend pages use plain HTML + CSS + JS.
 
 **Roles**
 
@@ -329,7 +344,7 @@ Also check the logs under `compile_server/*/logfiles/` and `oj_server/logfiles/`
 | `leader` | Registered as a leader using the admin invite code; can create **multiple** groups, invites members via each group's replaceable invite code, publishes questions inside the group. |
 | `user` | Joins groups with an invite code, sees global + joined-group questions, submits code. |
 
-**API usage**
+**Typical workflow**
 
 1. Register the first account — it automatically becomes `admin` (empty `users` table bootstrap).
 2. An admin generates the leader-registration invite code: `POST /api/admin/invite` (admin auth).
@@ -338,25 +353,7 @@ Also check the logs under `compile_server/*/logfiles/` and `oj_server/logfiles/`
 5. A leader or admin creates groups: `POST /api/groups` `{"name": "..."}` → returns `group_id` + `invite_code` (multiple groups allowed); reset a group's code anytime with `POST /api/groups/{id}/invite`.
 6. Users join with `POST /api/groups/join` `{"invite_code": "..."}`.
 7. Admin promotes/demotes users with `PUT /api/users/{id}/role`.
-8. Admin/leader creates questions through the `GET /question_manage` UI (or `POST /api/questions` directly); `scope = global` or a group id. Edit/delete via `PUT`/`DELETE /api/questions/{id}` (planned).
-9. `GET /all_questions`, `GET /question/{id}`, `POST /judge/{id}` filter by the current user's role and groups (planned).
-
-**Roles**
-
-| Role | Permissions |
-| --- | --- |
-| `admin` | Changes other users' roles, publishes global questions, sees/manages all questions. |
-| `leader` | Owns a group, invites members via a replaceable invite code, publishes questions inside the group. |
-| `user` | Joins groups with an invite code, sees global + joined-group questions, submits code. |
-
-**Typical operations once implemented**
-
-1. Seed / register the first `admin` (see the commented `INSERT` in [Database Setup](#3-database-setup)).
-2. `POST /api/register` to create regular users; `POST /api/login` returns a token (`Authorization: Bearer <token>` for protected calls).
-3. Admin promotes users: `PUT /api/users/{id}/role`.
-4. A leader creates a group: `POST /api/groups` → returns `invite_code`; reset it anytime with `POST /api/groups/{id}/invite`.
-5. Users join with `POST /api/groups/join` `{"invite_code": "..."}`.
-6. Admin/leader creates questions through the `GET /question_manage` UI (or `POST /api/questions` directly); `scope = global` or a group id. Edit/delete via `PUT`/`DELETE /api/questions/{id}`.
-7. `GET /all_questions`, `GET /question/{id}`, `POST /judge/{id}` filter by the current user's role and groups.
+8. Admin/leader creates questions through the `GET /question_manage` UI (or `POST /api/questions` directly); `scope = global` or a group id. Edit/delete via `PUT`/`DELETE /api/questions/{id}`.
+9. `GET /all_questions`, `GET /question/{id}`, `POST /judge/{id}` filter by the current user's role and groups.
 
 **Passwords** are stored as `Hash(password + salt)` with the registration timestamp as the salt — never in plaintext. No third-party crypto library is used.

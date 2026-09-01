@@ -270,35 +270,90 @@ namespace oj_control
             _loadblance.OnlineAllMachines();
         }
 
+        // 根据题目编号判断当前用户是否可见:
+        // 全局题所有人可见; 管理员可见全部; 负责人仅见本组题; 普通用户仅见所在组题
+        bool CanAccessQuestion(const oj_user_model::User* user,const Question& q)
+        {
+            if(q._scope == "global")
+                return true;
+            if(user == nullptr)
+                return false;
+            if(user->_role == "admin")
+                return true;
+            int gid = std::atoi(q._scope.c_str());
+            if(gid <= 0)
+                return false;
+            if(user->_role == "leader")
+                return LeaderOwnsGroup(user->_id,gid);
+            return _user_model.IsMember(user->_id,gid);
+        }
+
         //根据题目数据构建网页
         // html: 输出型参数
-        void AllQuestions(std::string* html)
+        void AllQuestions(const std::string& auth,std::string* html)
         {
             std::vector<Question> all_questions;
             _model.GetAllQuestions(&all_questions);
 
-            sort(all_questions.begin(),all_questions.end(),
+            oj_user_model::User cur;
+            bool logged = GetSessionUser(auth,&cur);
+
+            // 按当前用户的角色与所属小组过滤可见性(匿名仅见全局题)
+            std::vector<Question> visible;
+            for(const auto& q : all_questions)
+                if(CanAccessQuestion(logged ? &cur : nullptr,q))
+                    visible.push_back(q);
+
+            sort(visible.begin(),visible.end(),
             [](const Question& q1,const Question& q2)
             {
                 return std::atoll(q1._id.c_str()) < std::atoll(q2._id.c_str());
             });
 
             // 获取题目信息成功，将所有的题目数据构建成网页
-            _view.AllExpandHtml(all_questions,html);
+            _view.AllExpandHtml(visible,logged,html);
         }
 
-        void OneQuestion(const std::string& id, std::string* html)
+        void OneQuestion(const std::string& auth,const std::string& id,std::string* html)
         {
             Question q;
             _model.GetOneQuestion(id,&q);
-            _view.OneExpandHtml(q,html);
+
+            oj_user_model::User cur;
+            bool logged = GetSessionUser(auth,&cur);
+
+            if(q._id.empty())
+            {
+                *html = MessagePage("题目不存在","该题目不存在或已被删除。");
+                return;
+            }
+            if(!CanAccessQuestion(logged ? &cur : nullptr,q))
+            {
+                LOG_WARNNING(GetLogger("oj_Logger"),"%s%s%s","visibility rejected! question: ",id.c_str(),(" user: " + (logged ? cur._username : "anonymous")).c_str());
+                *html = MessagePage("无法访问","这道题目仅对可见范围开放，你可能还未加入对应的小组。");
+                return;
+            }
+            _view.OneExpandHtml(q,logged,html);
         }
 
-        void Judge(const std::string& id,const std::string& in_json,std::string* out_json)
+        void Judge(const std::string& auth,const std::string& id,const std::string& in_json,std::string* out_json)
         {
             // 0. 根据题目编号，直接拿到对应的题目细节
             Question q;
             _model.GetOneQuestion(id, &q);
+
+            // 0.5 可见性校验: 仅允许对当前用户可见的题目提交评测
+            oj_user_model::User cur;
+            bool logged = GetSessionUser(auth,&cur);
+            if(q._id.empty() || !CanAccessQuestion(logged ? &cur : nullptr,q))
+            {
+                LOG_WARNNING(GetLogger("oj_Logger"),"%s%s%s","judge visibility rejected! question: ",id.c_str(),(" user: " + (logged ? cur._username : "anonymous")).c_str());
+                Json::Value out;
+                out["status"] = -2;
+                out["reason"] = "题目不可访问或不存在";
+                *out_json = WriteJson(out);
+                return;
+            }
 
             // 1. in_json进行反序列化，得到题目的id，得到用户提交源代码，input
             Json::Reader reader;
@@ -306,7 +361,7 @@ namespace oj_control
             reader.parse(in_json,in_value);
             std::string code = in_value["code"].asString();
 
-            // 2. 重新拼接用户代码+测试用例代码，形成新的代码
+            // 2. 重新拼接用户代码+隐藏测试用例(tail, 判题唯一依据), 形成新的代码
             Json::Value compile_value;
             compile_value["input"] = in_value["input"].asString();
             compile_value["code"] = q._header + "\n" + code + "\n" + q._tail;
@@ -354,6 +409,52 @@ namespace oj_control
         }
 
         // ---------- 用户 / 角色 / 小组 (见 SPEC.md §5.5 ~ §5.10) ----------
+
+        // GET /register —— 注册页(可选普通用户/负责人, 负责人需管理员邀请码)
+        void RegisterPage(std::string* html)
+        {
+            _view.RegisterExpandHtml(html);
+        }
+
+        // GET /login —— 登录页
+        void LoginPage(std::string* html)
+        {
+            _view.LoginExpandHtml(html);
+        }
+
+        // GET /group_manage —— 小组管理页
+        // 管理员: 额外提供负责人注册邀请码管理; 负责人/管理员: 创建并管理多个小组与邀请码;
+        // 普通用户: 凭小组邀请码加入小组并查看已加入的小组
+        void GroupManage(const std::string& auth,std::string* html)
+        {
+            oj_user_model::User cur;
+            if(!GetSessionUser(auth,&cur))
+            {
+                *html = MessagePage("无法访问","请先登录后再管理小组。");
+                return;
+            }
+
+            std::vector<oj_view::GroupEntry> my_groups;
+            std::vector<oj_user_model::Group> owned;
+            _user_model.GetGroupsByOwner(cur._id,&owned);
+            for(const auto& g : owned)
+                my_groups.push_back({std::to_string(g._id),g._name,g._invite_code,g._created_at});
+
+            std::vector<oj_view::GroupEntry> joined_groups;
+            if(cur._role == "user")
+            {
+                std::vector<int> gids;
+                _user_model.GetUserGroups(cur._id,&gids);
+                for(int gid : gids)
+                {
+                    oj_user_model::Group g;
+                    if(_user_model.GetGroupById(gid,&g))
+                        joined_groups.push_back({std::to_string(g._id),g._name,g._invite_code,g._created_at});
+                }
+            }
+
+            _view.GroupManageExpandHtml(cur._role,cur._username,my_groups,joined_groups,html);
+        }
 
         static std::string WriteJson(const Json::Value& value)
         {
@@ -444,12 +545,14 @@ namespace oj_control
             oj_user_model::User user;
             if(!_user_model.Login(username,password,&user))
             {
+                LOG_WARNNING(GetLogger("oj_Logger"),"%s%s","login failed! username: ",username.c_str());
                 out["ok"] = false;
                 out["message"] = "用户名或密码错误";
                 *out_json = WriteJson(out);
                 return;
             }
             std::string token = _user_model.CreateSession(user);
+            LOG_INFOR(GetLogger("oj_Logger"),"%s%s%s","login succeed! username: ",user._username.c_str(),(" role: " + user._role).c_str());
             out["ok"] = true;
             out["token"] = token;
             out["username"] = user._username;
@@ -696,6 +799,11 @@ namespace oj_control
                 *err = "非法的难度";
                 return false;
             }
+            if(q->_tail.empty())
+            {
+                *err = "必须设置不可见测试案例(tail)";
+                return false;
+            }
             return true;
         }
 
@@ -708,11 +816,30 @@ namespace oj_control
 
         std::string MessagePage(const std::string& title,const std::string& message)
         {
-            return "<!DOCTYPE html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\"><title>" + title + " - 在线OJ</title></head>"
-                "<body style=\"font-family:sans-serif;text-align:center;padding-top:80px;background:#F0F9FF;color:#0C4A6E;\">"
-                "<h2>" + title + "</h2><p>" + message + "</p>"
-                "<p><a href=\"/all_questions\" style=\"color:#0369A1;\">返回题目列表</a></p>"
+            // 若浏览器本地保存了 token, 则自动携带 Authorization 重新请求当前页面,
+            // 让直接访问受限页面(如小组题/管理页)的用户无需手动跳转即可恢复可见性
+            std::string html =
+                "<!DOCTYPE html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\">"
+                "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">"
+                "<title>" + title + " - 在线OJ</title></head>"
+                "<body id=\"oj-msg-page\" style=\"margin:0;font-family:\"Noto Sans SC\",\"PingFang SC\",\"Microsoft YaHei\",sans-serif;"
+                "background:#F0F9FF;color:#0C4A6E;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:40px 20px;\">"
+                "<div style=\"max-width:520px;width:100%;background:#fff;border:1px solid #E0F2FE;border-radius:18px;"
+                "box-shadow:0 8px 30px rgba(14,165,233,0.12);padding:48px 40px;text-align:center;\">"
+                "<h2 style=\"font-family:\"Noto Serif SC\",\"Songti SC\",serif;color:#0C4A6E;letter-spacing:1px;margin:0 0 12px;\">" + title + "</h2>"
+                "<p style=\"color:#64748B;margin:0 0 28px;line-height:1.8;\">" + message + "</p>"
+                "<div style=\"display:flex;gap:12px;justify-content:center;flex-wrap:wrap;\">"
+                "<a href=\"/all_questions\" style=\"display:inline-block;padding:10px 24px;border-radius:12px;background:#0EA5E9;color:#fff;text-decoration:none;\">返回题目列表</a>"
+                "<a href=\"/login\" style=\"display:inline-block;padding:10px 24px;border-radius:12px;background:#fff;color:#0369A1;border:1px solid #E0F2FE;text-decoration:none;\">去登录</a>"
+                "</div></div>"
+                "<script>try{var t=localStorage.getItem('oj_token');if(t&&!sessionStorage.getItem('oj_msg_retry')){"
+                "sessionStorage.setItem('oj_msg_retry','1');"
+                "fetch(location.href,{headers:{'Authorization':'Bearer '+t}}).then(function(r){return r.text();}).then(function(h){"
+                "sessionStorage.removeItem('oj_msg_retry');"
+                "if(h.indexOf('id=\"oj-msg-page\"')===-1){document.open();document.write(h);document.close();}"
+                "}).catch(function(){sessionStorage.removeItem('oj_msg_retry');});}}catch(e){}</script>"
                 "</body></html>";
+            return html;
         }
 
         // POST /api/questions —— 发布题目(管理员全局 / 负责人组内)

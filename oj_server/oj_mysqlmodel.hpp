@@ -58,7 +58,7 @@ namespace oj_mysqlmodel
         std::string _desc;      // 题目的描述
         std::string _header;    // 题目隐藏的头文件，只有接口模式下有，IO模式为空
         std::string _answer;    // 题目预设给用户在线编辑器的代码
-        std::string _tail;      // 题目的测试用例，需要和header拼接，形成完整代码
+        std::string _tail;      // 隐藏(不可见)测试用例: 判题唯一依据, 拼接在用户代码之后
         std::string _scope = "global";  // 可见范围: "global" 表示全局题, 否则为小组id
     };
 

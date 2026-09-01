@@ -23,6 +23,15 @@ namespace oj_view
         bool selected;
     };
 
+    // 小组管理页中的小组条目
+    struct GroupEntry
+    {
+        std::string id;
+        std::string name;
+        std::string invite_code;
+        std::string created_at;
+    };
+
     class View
     {
     private:
@@ -66,7 +75,7 @@ namespace oj_view
         }
 
     public:
-        void AllExpandHtml(const std::vector<Question>& questions,std::string *html)
+        void AllExpandHtml(const std::vector<Question>& questions,bool logged_in,std::string *html)
         {
             // 题目的编号 题目的标题 题目的难度
             // 推荐使用表格显示
@@ -74,6 +83,8 @@ namespace oj_view
             std::string src_html = template_path + "all_questions.html";
             // 2、形成数字字典
             ctemplate::TemplateDictionary root("all_questions");
+            // 该页面是否已按登录态渲染(供前端判断是否需携带 token 重新拉取)
+            root.SetValue("logged_in_flag",logged_in ? "1" : "0");
             for(const auto& q:questions)
             {
                 ctemplate::TemplateDictionary* sub = root.AddSectionDictionary("question_list");
@@ -89,7 +100,7 @@ namespace oj_view
             tpl->Expand(html,&root);
         }
 
-        void OneExpandHtml(Question& q, std::string* html)
+        void OneExpandHtml(Question& q,bool logged_in,std::string* html)
         {
             std::string src_html = template_path + "one_question.html";
 
@@ -99,6 +110,7 @@ namespace oj_view
             root.SetValue("rank",q.RankToString());
             root.SetValue("desc",q._desc);
             root.SetValue("pre_code",q._answer);
+            root.SetValue("logged_in_flag",logged_in ? "1" : "0");
 
             ctemplate::Template* tpl = ctemplate::Template::GetTemplate(src_html,ctemplate::DO_NOT_STRIP);
 
@@ -139,9 +151,13 @@ namespace oj_view
                 ",\"mem_limit\":" + std::to_string(q._mem_limit) + "}";
             root.SetValue("qdata",qdata);
 
-            root.SetValue("sel_simple",   q._rank == Question::EASY      ? "selected" : "");
-            root.SetValue("sel_normal",   q._rank == Question::NORMAL    ? "selected" : "");
-            root.SetValue("sel_difficult",q._rank == Question::DIFFICULT ? "selected" : "");
+            // 难度下拉预选: 区块由 AddSectionDictionary 驱动
+            if(q._rank == Question::EASY)
+                root.AddSectionDictionary("sel_simple");
+            if(q._rank == Question::NORMAL)
+                root.AddSectionDictionary("sel_normal");
+            if(q._rank == Question::DIFFICULT)
+                root.AddSectionDictionary("sel_difficult");
 
             for(const auto& opt:options)
             {
@@ -149,6 +165,65 @@ namespace oj_view
                 sub->SetValue("value",opt.value);
                 sub->SetValue("label",opt.label);
                 sub->SetValue("selected",opt.selected ? "selected" : "");
+            }
+
+            ctemplate::Template* tpl = ctemplate::Template::GetTemplate(src_html,ctemplate::DO_NOT_STRIP);
+            if(tpl)
+                tpl->Expand(html,&root);
+        }
+
+        // 注册页(普通用户/负责人, 负责人需管理员邀请码)
+        void RegisterExpandHtml(std::string* html)
+        {
+            std::string src_html = template_path + "register.html";
+            ctemplate::TemplateDictionary root("register");
+            ctemplate::Template* tpl = ctemplate::Template::GetTemplate(src_html,ctemplate::DO_NOT_STRIP);
+            if(tpl)
+                tpl->Expand(html,&root);
+        }
+
+        // 登录页
+        void LoginExpandHtml(std::string* html)
+        {
+            std::string src_html = template_path + "login.html";
+            ctemplate::TemplateDictionary root("login");
+            ctemplate::Template* tpl = ctemplate::Template::GetTemplate(src_html,ctemplate::DO_NOT_STRIP);
+            if(tpl)
+                tpl->Expand(html,&root);
+        }
+
+        // 小组管理页
+        // role: admin/leader/user; my_groups: 负责人/管理员所拥有的小组; joined_groups: 普通用户已加入的小组
+        void GroupManageExpandHtml(const std::string& role,const std::string& username,
+            const std::vector<GroupEntry>& my_groups,const std::vector<GroupEntry>& joined_groups,
+            std::string* html)
+        {
+            std::string src_html = template_path + "group_manage.html";
+            ctemplate::TemplateDictionary root("group_manage");
+            root.SetValue("role",role);
+            root.SetValue("username",username);
+            // ctemplate 中区块仅由 AddSectionDictionary 驱动: 调用一次即渲染一次
+            if(role == "admin")
+                root.AddSectionDictionary("is_admin");
+            if(role == "leader" || role == "admin")
+                root.AddSectionDictionary("is_leader");
+            if(role == "user")
+                root.AddSectionDictionary("is_user");
+
+            for(const auto& g : my_groups)
+            {
+                ctemplate::TemplateDictionary* sub = root.AddSectionDictionary("my_group_list");
+                sub->SetValue("id",g.id);
+                sub->SetValue("name",g.name);
+                sub->SetValue("invite_code",g.invite_code);
+                sub->SetValue("created_at",g.created_at);
+            }
+            for(const auto& g : joined_groups)
+            {
+                ctemplate::TemplateDictionary* sub = root.AddSectionDictionary("joined_group_list");
+                sub->SetValue("id",g.id);
+                sub->SetValue("name",g.name);
+                sub->SetValue("created_at",g.created_at);
             }
 
             ctemplate::Template* tpl = ctemplate::Template::GetTemplate(src_html,ctemplate::DO_NOT_STRIP);

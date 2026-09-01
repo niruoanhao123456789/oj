@@ -61,6 +61,27 @@
         .header nav a.add { background: var(--accent-soft); border-color: rgba(249,115,22,0.25); }
         .header nav a.add:hover { background: var(--accent); color: #fff; box-shadow: 0 4px 14px rgba(249,115,22,0.35); }
 
+        .user-area { display: flex; align-items: center; gap: 6px; }
+        .user-area a {
+            color: var(--text); text-decoration: none; font-size: 13px;
+            padding: 6px 12px; border-radius: 9px; cursor: pointer;
+            background: rgba(14,165,233,0.08); border: 1px solid var(--border);
+            transition: all .25s ease;
+        }
+        .user-area a:hover { background: var(--primary); color: #fff; }
+        .user-area a.reg { background: var(--accent-soft); border-color: rgba(249,115,22,0.25); }
+        .user-area a.reg:hover { background: var(--accent); color: #fff; }
+        .user-area a.logout { background: transparent; border-color: transparent; color: var(--muted); }
+        .user-area a.logout:hover { background: var(--danger-soft); color: var(--danger); }
+        .user-chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 5px 12px; border-radius: 999px; font-size: 13px; font-weight: 600;
+            background: #F0F9FF; color: var(--primary-dark); border: 1px solid var(--border);
+            max-width: 200px; overflow: hidden;
+        }
+        .user-chip svg { color: var(--primary); flex-shrink: 0; }
+        .user-chip em { font-style: normal; font-weight: 500; font-size: 11px; color: var(--muted); }
+
         .container { max-width: 1020px; margin: 40px auto 20px; padding: 0 20px; }
         .hero { text-align: center; padding: 12px 0 26px; }
         .hero .eyebrow {
@@ -117,8 +138,10 @@
             <h1>在线<em>OJ</em></h1>
         </a>
         <nav>
-            <a href="/all_questions">题目列表</a>
+            <a href="/all_questions" data-fetch="1">题目列表</a>
+            <a href="/group_manage" data-fetch="1">小组</a>
             <a class="add" href="/question_manage/edit" data-fetch="1">＋ 新增题目</a>
+            <div class="user-area" id="userArea"></div>
         </nav>
     </header>
 
@@ -196,6 +219,33 @@
                 })
                 .catch(function () { showMsg('页面加载失败'); });
         });
+
+        (function userArea() {
+            var area = document.getElementById('userArea');
+            if (!area) return;
+            var u = (function(){ try { return localStorage.getItem('oj_username') || ''; } catch(e){ return ''; } })();
+            var r = (function(){ try { return localStorage.getItem('oj_role') || ''; } catch(e){ return ''; } })();
+            var roleMap = { admin: '管理员', leader: '负责人', user: '普通用户' };
+            if (TOKEN && u) {
+                area.innerHTML = '<span class="user-chip" title="' + u + '">'
+                    + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
+                    + u + '<em>' + (roleMap[r] || r) + '</em></span>'
+                    + '<a href="#" class="logout" id="logoutBtn">退出</a>';
+                var lo = document.getElementById('logoutBtn');
+                if (lo) lo.addEventListener('click', function (ev) {
+                    ev.preventDefault();
+                    try {
+                        localStorage.removeItem('oj_token');
+                        localStorage.removeItem('oj_username');
+                        localStorage.removeItem('oj_role');
+                        sessionStorage.removeItem('oj_auth_fetched');
+                    } catch (err) { }
+                    location.href = '/login';
+                });
+            } else {
+                area.innerHTML = '<a href="/login" data-fetch="1">登录</a><a href="/register" data-fetch="1" class="reg">注册</a>';
+            }
+        })();
 
         function showMsg(t) {
             var m = document.getElementById('msg');

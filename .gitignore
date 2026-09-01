@@ -75,6 +75,11 @@ compile_server/temp/
 tests/unit/unit_tests
 tests/unit/*.o
 
+# tests/example
+tests/example/mysql_test
+tests/example/file_test
+tests/example/filemodel/
+
 # packaged output (make output)
 output/
 

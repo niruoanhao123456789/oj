@@ -33,7 +33,7 @@ int main()
     // 获取所有的题目列表
     svr.Get("/all_questions",[&ctrl](const Request& req,Response& resp){
         std::string html;
-        ctrl.AllQuestions(&html);
+        ctrl.AllQuestions(req.get_header_value("Authorization"),&html);
         resp.set_content(html,"text/html; charset=utf-8");
     });
 
@@ -43,7 +43,7 @@ int main()
     svr.Get(R"(/question/(\d+))",[&ctrl](const Request& req,Response& resp){
         const std::string id = req.matches[1];
         std::string html;
-        ctrl.OneQuestion(id,&html);
+        ctrl.OneQuestion(req.get_header_value("Authorization"),id,&html);
         resp.set_content(html,"text/html; charset=utf-8");
     });
 
@@ -51,8 +51,27 @@ int main()
     svr.Post(R"(/judge/(\d+))",[&ctrl](const Request& req,Response& resp){
         const std::string id = req.matches[1];
         std::string result_json;
-        ctrl.Judge(id,req.body,&result_json);
+        ctrl.Judge(req.get_header_value("Authorization"),id,req.body,&result_json);
         resp.set_content(result_json,"application/json;charset=utf-8");
+    });
+
+    // 注册 / 登录 页面
+    svr.Get("/register",[&ctrl](const Request& req,Response& resp){
+        std::string html;
+        ctrl.RegisterPage(&html);
+        resp.set_content(html,"text/html; charset=utf-8");
+    });
+    svr.Get("/login",[&ctrl](const Request& req,Response& resp){
+        std::string html;
+        ctrl.LoginPage(&html);
+        resp.set_content(html,"text/html; charset=utf-8");
+    });
+
+    // 小组管理页面
+    svr.Get("/group_manage",[&ctrl](const Request& req,Response& resp){
+        std::string html;
+        ctrl.GroupManage(req.get_header_value("Authorization"),&html);
+        resp.set_content(html,"text/html; charset=utf-8");
     });
 
     // 注册 / 登录

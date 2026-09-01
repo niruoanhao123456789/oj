@@ -30,6 +30,7 @@
 7. 多进程、多线程
 8. MySQL C connect   
 9. Ace前端在线编辑器
+10. Google Test（gtest）单元测试
 
 ## 环境依赖
 
@@ -45,6 +46,7 @@
 | ctemplate | `libctemplate-dev` | 模板化 HTML 渲染（`-lctemplate`） |
 | MySQL 客户端 | `libmysqlclient-dev` | MySQL C API（`-lmysqlclient`） |
 | Boost（头文件） | `libboost-dev` | 字符串切割工具 |
+| gtest | `libgtest-dev` | 单元测试（`-lgtest -lgtest_main`） |
 | pthread | glibc | 多线程（`-lpthread`） |
 
 > 更详细的部署步骤（数据库初始化、构建与启动）请参考 [DEPLOY.zh.md](DEPLOY.zh.md)。
@@ -58,9 +60,10 @@
 - **MySQL 题库** —— 题目元数据、隐藏测试代码与限制均存储在 `questions` 表中（同时附带一套基于文件的模型作为替代方案）。
 - **模板化 HTML 渲染** —— 使用 ctemplate 库根据 `template_html/` 下的模板渲染页面。
 - **结构化日志** —— 异步、按时间滚动的日志器，日志写入 `logfiles/`。
-- **角色与小组**（规划中，见 [SPEC.md 第14节](SPEC.md#14-待办清单todo)）—— 三种角色：**管理员**（超管，管理角色等级、发布全局题）、**负责人**（拥有小组，可用可更换的邀请码拉人，发布仅本组成员可见的组内题）、**普通用户**（凭邀请码加入小组，可见全局题 + 所在组题目）。
-- **题目管理**（规划中）—— 管理员/负责人通过 HTML+CSS+JS 页面（由 `oj_server/oj_view.hpp` 的 `View` 类渲染）新增、修改、删除题目；表单内容经 JSON 提交后写入 MySQL 或基于文件的 `questions/` 模型。
-- **时间戳加盐密码哈希**（规划中）—— 密码以 `Hash(password + salt)` 存储，盐值为注册时的时间戳，不以明文落库。
+- **角色与小组** —— 三种角色：**管理员**（超管，管理角色等级、生成负责人注册邀请码、发布全局题）、**负责人**（拥有小组，可用可更换的邀请码拉人，发布仅本组成员可见的组内题）、**普通用户**（凭邀请码加入小组，可见全局题 + 所在组题目）。
+- **题目管理** —— 管理员/负责人通过 HTML+CSS+JS 页面（由 `oj_server/oj_view.hpp` 的 `View` 类渲染）新增、修改、删除题目；表单内容经 JSON 提交后写入 MySQL 或基于文件的 `questions/` 模型。
+- **时间戳加盐密码哈希** —— 密码以 `Hash(password + salt)` 存储，盐值为注册时的时间戳，不以明文落库。
+- **Google Test 单元测试** —— `make test` 构建并运行 `tests/unit/` 下的 gtest 套件（22 个用例、8 个测试套件），覆盖密码哈希、两个题目模型与内存会话存储。
 
 ## 系统架构
 
@@ -71,8 +74,8 @@
                     │               oj_server（网关）               │
                     │  • 提供 HTML 页面          （端口 8080）       │
                     │  • 从 MySQL 读取题目信息                      │
-                    │  • 用户账号 / 角色 / 小组（规划中）            │
-                    │  • 题目管理（规划中）                         │
+                    │  • 用户账号 / 角色 / 小组                      │
+                    │  • 题目管理                                   │
                     │  • 对 /judge/{id} 请求做负载均衡              │
                     └───────┬──────────────┬──────────────┬────────┘
                             │              │              │
@@ -89,10 +92,10 @@
 
 1. 用户打开 `/question/{id}` 并点击「提交评测」。
 2. 浏览器向 `oj_server` 的 `/judge/{id}` 发起 `POST`，请求体为 `{"code": ...}`。
-3. `oj_server` 从 MySQL 加载题目，并拼接出完整源码：`header.cpp`（隐藏头）+ 用户代码 + `tail.cpp`（测试用例）。
+3. `oj_server` 从 MySQL 加载题目，并拼接出完整源码：`header.cpp`（隐藏头）+ 用户代码 + `tail.cpp`（**隐藏测试用例**，答题页不对用户展示）。
 4. 负载均衡器选择**当前负载最小**的编译服务器，将 `{"code", "input", "cpu_limit", "mem_limit"}` 转发到其 `/compile_and_run` 接口。
-5. 编译服务器用 `g++` 编译，并在 `setrlimit` 的 CPU/内存限制下运行二进制，返回 JSON 评测结果。
-6. 结果回传给浏览器，渲染为 `AC / WA / TLE` 等反馈。
+5. 编译服务器用 `g++` 编译，并在 `setrlimit` 的 CPU/内存限制下运行二进制，返回 JSON 评测结果（含 `pass_count`/`total_count`，按 PASSRATE 协议）。
+6. 结果回传给浏览器，**仿 LeetCode** 渲染：除现有错误返回外，只显示「测试用例通过: X / Y（百分比）」，不展示具体通过的案例。
 
 ## 目录结构
 
@@ -110,20 +113,25 @@
 │   └── temp/                   # 临时源文件 / 可执行文件（已 git 忽略）
 ├── oj_server/                  # Web 网关（端口 8080）
 │   ├── oj_server.cpp           # HTTP 路由 + 静态文件服务
-│   ├── oj_control.hpp          # 负载均衡 + 判题编排
+│   ├── oj_control.hpp          # 负载均衡 + 判题编排 + 认证/权限
 │   ├── oj_mysqlmodel.hpp       # MySQL 题目模型（当前使用）
 │   ├── oj_filemodel.hpp        # 文件题目模型（替代方案）
 │   ├── oj_view.hpp             # ctemplate HTML 渲染
 │   ├── conf/service_machine.conf   # 编译服务器端点列表
-│   ├── user/                       # 用户管理内容（认证/角色/小组）—— 占位
-│   ├── question_manage/            # 题目管理内容（新增/修改/删除）—— 占位
-│   ├── template_html/          # ctemplate 模板
+│   ├── database/                   # SQL 脚本（oj.sql / upgrade.sql）
+│   ├── user/                       # 认证 / 角色 / 小组（oj_passwd.hpp、oj_user_model.hpp）
+│   ├── template_html/          # ctemplate 模板（含注册/登录/小组管理/题目管理页）
 │   ├── wwwroot/                # 静态资源（落地页等）
 │   ├── questions/              # 文件模型的示例题目
 │   └── makefile
-├── makefile                    # 顶层构建 / 打包入口
+├── tests/unit/                 # Google Test 单元测试（make test）
+│   ├── makefile
+│   ├── test_env.hpp
+│   └── test_*.cpp              # passwd / question / filemodel / mysqlmodel / session
+├── makefile                    # 顶层构建 / 测试 / 打包入口
 ├── output/                     # `make output` 生成的发布包
 ├── README.md                   # 本文档（中文）/ README.md（英文）
+├── SPEC.md                     # 软件规格说明书（中文）
 ├── API.md                      # HTTP 接口文档（中文）/ API.zh.md（英文）
 ├── DEPLOY.md                   # 部署文档（中文）/ DEPLOY.zh.md（英文）
 └── LICENSE
@@ -156,6 +164,7 @@ cd ../oj_server && ./oj_server
 | 目标 | 用途 |
 | --- | --- |
 | `make` / `make all` | 在各自目录下编译 `compile_server` 与 `oj_server`。 |
+| `make test` | 构建并运行 `tests/unit/` 下的 Google Test 单元测试（`./unit_tests`）。 |
 | `make output` | 将完整的、可独立运行的程序打包到 `output/` 目录，用于发布或发送给他人。 |
 | `make clean` | 清理两个服务的构建产物，并删除整个 `output/` 目录。 |
 
@@ -169,6 +178,7 @@ output/
 └── oj_server/
     ├── oj_server               # 网关二进制
     ├── conf/                   # service_machine.conf
+    ├── database/               # SQL 脚本（oj.sql / upgrade.sql）
     ├── questions/              # 文件模型的示例题目
     ├── template_html/          # ctemplate 模板
     └── wwwroot/                # 静态资源
@@ -180,6 +190,7 @@ output/
 
 | 文档 | English | 简体中文 |
 | --- | --- | --- |
+| 软件规格说明书 | — | [SPEC.md](SPEC.md) |
 | 接口文档 | [API.md](API.md) | [API.zh.md](API.zh.md) |
 | 部署文档 | [DEPLOY.md](DEPLOY.md) | [DEPLOY.zh.md](DEPLOY.zh.md) |
 

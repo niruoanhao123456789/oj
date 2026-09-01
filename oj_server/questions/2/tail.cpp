@@ -3,21 +3,19 @@
 #include "answer.cpp"
 #endif
 
+int g_pass = 0, g_total = 0;
+#define RUN_TEST(name, cond) do { ++g_total; if(cond) ++g_pass; } while(0)
+
 void test1()
 {
-    int ans = 12;
     std::vector<int> v = {1,2,3,4,5,6,12,3,4,-1};
-    int ret = Solution().Max(v);
-    
-    if(ret==ans)
-        std::cout << "用例1 Acesss, 测试{1,2,3,4,5,6,12,3,4,-1}通过 ... OK!" << std::endl;
-    else
-        std::cout << "用例1 failed, 输出为: "<<ret<<std::endl;
+    RUN_TEST("最大值12", Solution().Max(v) == 12);
 }
 
 int main()
 {
     test1();
 
+    std::cout << "PASSRATE " << g_pass << "/" << g_total << std::endl;
     return 0;
 }

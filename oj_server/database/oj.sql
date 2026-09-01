@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS questions (
     desc_text  TEXT,
     header     TEXT,                    -- hidden prologue, prepended before user code
     answer     TEXT,                    -- starter code shown in the editor
-    tail       TEXT,                    -- test cases, appended after user code
+    tail       TEXT,                    -- hidden test cases (sole judging basis), appended after user code
     cpu_limit  INT DEFAULT 1,           -- seconds
     mem_limit  INT DEFAULT 30,          -- MB
     scope      VARCHAR(16) NOT NULL DEFAULT 'global'   -- 'global' or a group id

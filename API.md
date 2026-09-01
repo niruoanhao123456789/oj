@@ -17,8 +17,8 @@ HTTP API reference for the load-balanced online judge. Two services expose HTTP 
 - [GET /question/{id}](#get-questionid)
 - [POST /judge/{id}](#post-judgeid)
 - [POST /compile_and_run (internal)](#post-compile_and_run-internal)
-- [Auth & Groups (planned)](#auth--groups-planned)
-- [Question Management (planned)](#question-management-planned)
+- [Auth & Groups](#auth--groups)
+- [Question Management](#question-management)
 - [Judge Result Status Codes](#judge-result-status-codes)
 - [Static Assets](#static-assets)
 - [Notes on Load Balancing](#notes-on-load-balancing)
@@ -32,13 +32,13 @@ HTTP API reference for the load-balanced online judge. Two services expose HTTP 
 - Question pages return `text/html; charset=utf-8`.
 - All question IDs are numeric and are matched by the gateway via the regular expression `(\d+)`.
 - Unless stated otherwise, an `id` in a path is the **question id** stored in the database (e.g. `1`, `2`).
-- **Authentication (planned):** protected endpoints require a token obtained from `POST /api/login`, sent as `Authorization: Bearer <token>`.
+- **Authentication:** protected endpoints require a token obtained from `POST /api/login`, sent as `Authorization: Bearer <token>`.
 
 ---
 
 ## Roles & Permissions
 
-> The role/group system is a **planned** feature (see [SPEC.md §14](SPEC.md#14-待办清单todo)); the endpoints below that rely on it are not yet wired into the gateway.
+> The role/group system is **wired into the gateway** via the JSON APIs in `oj_server/user/` (`oj_user_model.hpp` + `oj_passwd.hpp`); see [SPEC.md §15](SPEC.md#15-功能落地记录) for the full implementation record.
 
 | Role | Permissions |
 | --- | --- |
@@ -68,9 +68,7 @@ Returns the question list page as HTML.
 - `200 OK`
 - `Content-Type: text/html; charset=utf-8`
 
-The page renders a table of all questions visible to the current user (global + own groups) — each row links to `GET /question/{id}`. No JSON body is returned.
-
-> Visibility filtering is **planned**; today the page lists every question in the store.
+The page renders a table of all questions visible to the current user (global + own groups) — each row links to `GET /question/{id}`. No JSON body is returned. Anonymous visitors see only `global` questions; admins see all; leaders and regular users are filtered by their groups.
 
 **Example**
 
@@ -95,9 +93,7 @@ Returns the page for a single question, including its description, difficulty, a
 - `200 OK`
 - `Content-Type: text/html; charset=utf-8`
 
-The page embeds the question data and pre-code; submitting from the editor `POST`s to `/judge/{id}` (see below).
-
-> Access control is **planned**: non-visible questions return an access-denied notice.
+The page embeds the question data and pre-code; submitting from the editor `POST`s to `/judge/{id}` (see below). Questions the current user cannot see (non-global, not in their groups, and not admin/leader-own-group) return an access-denied notice.
 
 **Example**
 
@@ -109,7 +105,7 @@ curl http://localhost:8080/question/1
 
 ## POST /judge/{id}
 
-Submits user code for a question and returns the judge result as JSON. The gateway builds the full program from `header + code + tail`, selects the least-loaded compile server, and forwards the job.
+Submits user code for a question and returns the judge result as JSON. The gateway builds the full program from `header + code + tail` (`tail` is the **hidden test cases**, not visible to users on the question page), selects the least-loaded compile server, and forwards the job.
 
 **Path:** `POST /judge/{id}`
 
@@ -147,10 +143,14 @@ curl -X POST http://localhost:8080/judge/1 \
 | --- | --- | --- |
 | `status` | integer | Judge status code (see [status codes](#judge-result-status-codes)). |
 | `reason` | string | Human-readable result description (Chinese). |
-| `stdout` | string | Program standard output. Present only when `status == 0`. |
+| `stdout` | string | Program standard output. Present only when `status == 0` (PASSRATE line stripped). |
 | `stderr` | string | Program standard error. Present only when `status == 0`. |
+| `pass_count` | integer | Passed hidden cases. Present when `status == 0` and the driver reports via the PASSRATE protocol. |
+| `total_count` | integer | Total hidden cases. Present when `status == 0` and the driver reports via the PASSRATE protocol. |
 
-> **Planned:** only questions visible to the current user may be judged.
+> Visibility is enforced: only questions visible to the current user may be judged (anonymous visitors may only judge `global` questions).
+>
+> **Result presentation (LeetCode style):** errors are returned as before (`status != 0`). When `status == 0` with `pass_count`/`total_count`, the answer page shows only "Testcases passed: X / Y (percentage)" — it never lists which individual cases passed.
 
 **Example response (success)**
 
@@ -158,8 +158,10 @@ curl -X POST http://localhost:8080/judge/1 \
 {
   "status": 0,
   "reason": "编译成功",
-  "stdout": "ok",
-  "stderr": ""
+  "stdout": "",
+  "stderr": "",
+  "pass_count": 3,
+  "total_count": 3
 }
 ```
 
@@ -188,7 +190,7 @@ curl -X POST http://localhost:8080/judge/1 \
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `code` | string | yes | The **full** source code (header + user code + tail). |
+| `code` | string | yes | The **full** source code (`header + user code + tail`, `tail` = hidden test cases). |
 | `input` | string | no | Program stdin input (defaults to empty). |
 | `cpu_limit` | integer | yes | CPU time limit in seconds. |
 | `mem_limit` | integer | yes | Memory limit in MB. |
@@ -209,13 +211,15 @@ curl -X POST http://localhost:8080/judge/1 \
 - `200 OK` (even when the compiled program fails to run correctly; the outcome is described by `status`)
 - `Content-Type: application/json; charset=utf-8`
 
-**Response body** — identical to [`/judge/{id}`](#post-judgeid).
+**Response body** — identical to [`/judge/{id}`](#post-judgeid) (including `pass_count`/`total_count` per the PASSRATE protocol).
+
+> **PASSRATE protocol:** the hidden test driver (`tail`) accumulates passes via `RUN_TEST(name, cond)` and prints exactly one final line `PASSRATE <passed>/<total>` (no per-case output). The compile server parses this line into `pass_count`/`total_count` and removes it from the user-visible `stdout`.
 
 ---
 
-## Auth & Groups (planned)
+## Auth & Groups
 
-> All endpoints below are **planned** (see [SPEC.md §14](SPEC.md#14-待办清单todo)) and not yet wired into the gateway. JSON in / JSON out, `application/json; charset=utf-8`.
+> All endpoints below are **wired into the gateway** (see [SPEC.md §15](SPEC.md#15-功能落地记录)). JSON in / JSON out, `application/json; charset=utf-8`. The corresponding pages are served at `GET /register`, `GET /login`, and `GET /group_manage`.
 
 ### POST /api/register
 
@@ -271,9 +275,9 @@ Changes a user's role (admin only).
 
 ---
 
-## Question Management (planned)
+## Question Management
 
-> **Planned** endpoints for creating, editing, and deleting questions. The frontend pages are plain **HTML + CSS + JS**, rendered by the `View` class in `oj_server/oj_view.hpp` (ctemplate); the form content is packed into JSON and submitted to the APIs below. The gateway persists into the active model — MySQL `questions` table (with the `scope` column) or the file-based `questions/` model (6-column `questions.list` + `questions/{id}/`).
+> Endpoints for creating, editing, and deleting questions. The frontend pages are plain **HTML + CSS + JS**, rendered by the `View` class in `oj_server/oj_view.hpp` (ctemplate); the form content is packed into JSON and submitted to the APIs below. The gateway persists into the active model — MySQL `questions` table (with the `scope` column) or the file-based `questions/` model (6-column `questions.list` + `questions/{id}/`).
 
 ### POST /api/questions
 
@@ -288,10 +292,12 @@ Creates a question (admin publishes global questions, leader publishes within th
 | `desc` | string | no | Description |
 | `header` | string | no | Hidden prologue code |
 | `answer` | string | no | Starter code for the editor |
-| `tail` | string | no | Test-case driver code |
+| `tail` | string | yes | **Hidden test cases** (sole judging basis, invisible to users on the question page; follow the PASSRATE protocol) |
 | `cpu_limit` | integer | yes | Seconds |
 | `mem_limit` | integer | yes | MB |
 | `scope` | string | yes | `global` or a group id |
+
+> `tail` is required on both create and update (`{"message": "必须设置不可见测试案例(tail)"}` if missing).
 
 **Response:** `200 OK` — `{"ok": true, "id": 3}`
 

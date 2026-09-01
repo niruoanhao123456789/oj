@@ -3,35 +3,22 @@
 #include "answer.cpp"
 #endif
 
+int g_pass = 0, g_total = 0;
+#define RUN_TEST(name, cond) do { ++g_total; if(cond) ++g_pass; } while(0)
+
 void test1()
 {
-    // 通过定义临时对象，来完成方法的调用
-    bool ret = Solution().isPalindrome(121);
-    if(ret)
-        std::cout << "用例1 Acesss, 测试121通过 ... OK!" << std::endl;
-    else
-        std::cout << "用例1 failed, 测试的值是: 121"  << std::endl;
-
+    RUN_TEST("回文数121", Solution().isPalindrome(121));
 }
 
 void test2()
 {
-    // 通过定义临时对象，来完成方法的调用
-    bool ret = Solution().isPalindrome(-121);
-    if(!ret)
-        std::cout << "用例2 Acesss, 测试-121通过 ... OK!" << std::endl;
-    else
-        std::cout << "用例2 failed, 测试的值是: -121"  << std::endl;
+    RUN_TEST("回文数-121", !Solution().isPalindrome(-121));
 }
 
 void test3()
 {
-    // 通过定义临时对象，来完成方法的调用
-    bool ret = Solution().isPalindrome(10);
-    if(ret)
-        std::cout << "用例3 Acesss, 测试10通过 ... OK!" << std::endl;
-    else
-        std::cout << "用例3 failed, 测试的值是: 10"  << std::endl;
+    RUN_TEST("回文数10", !Solution().isPalindrome(10));
 }
 
 int main()
@@ -40,5 +27,6 @@ int main()
     test2();
     test3();
 
+    std::cout << "PASSRATE " << g_pass << "/" << g_total << std::endl;
     return 0;
 }
