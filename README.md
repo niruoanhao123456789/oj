@@ -69,6 +69,9 @@ sudo apt install -y g++ make mysql-server libjsoncpp-dev libcpp-httplib-dev \
 - **Question bank backed by MySQL** — question metadata, hidden test code, and limits are stored in a `questions` table (a file-based model is also included as an alternative).
 - **Template-driven HTML pages** — rendered with the ctemplate library from `template_html/`.
 - **Structured logging** — an async, time-rolling logger writes logs to `logfiles/`.
+- **Roles & groups** *(planned, see [SPEC.md §14](SPEC.md#14-待办清单todo))* — three roles: **admin** (super admin, manages roles, publishes global questions), **leader** (owns a group, invites members via a replaceable invite code, publishes group-only questions), and **user** (joins groups with an invite code, sees global + own-group questions).
+- **Question management** *(planned)* — admins/leaders create, edit, and delete questions through HTML+CSS+JS pages (rendered by the `View` class in `oj_server/oj_view.hpp`); the form content is posted as JSON and persisted into MySQL or the file-based `questions/` model.
+- **Timestamp-salted password hashing** *(planned)* — passwords are stored as `Hash(password + salt)` with the registration timestamp as the salt; never stored in plaintext.
 
 ## Architecture
 
@@ -79,6 +82,8 @@ The system is split into two services:
                     │               oj_server (gateway)            │
                     │  • serves HTML pages        (port 8080)      │
                     │  • reads questions from MySQL                │
+                    │  • user accounts / roles / groups (planned)  │
+                    │  • question management (planned)             │
                     │  • load-balances /judge/{id} requests        │
                     └───────┬──────────────┬──────────────┬────────┘
                             │              │              │
@@ -121,6 +126,8 @@ The system is split into two services:
 │   ├── oj_filemodel.hpp        # File-based question model (alternative)
 │   ├── oj_view.hpp             # ctemplate HTML rendering
 │   ├── conf/service_machine.conf   # List of compile-server endpoints
+│   ├── user/                   # User management content (auth / roles / groups) — placeholder
+│   ├── question_manage/        # Question management content (create / update / delete) — placeholder
 │   ├── template_html/          # ctemplate templates
 │   ├── wwwroot/                # Static assets (landing page, etc.)
 │   ├── questions/              # File-model sample questions

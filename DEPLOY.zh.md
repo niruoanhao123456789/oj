@@ -19,6 +19,7 @@
 - [9. 新增题目](#9-新增题目)
 - [10. 运维与维护](#10-运维与维护)
 - [11. 故障排查](#11-故障排查)
+- [12. 角色、小组与题目管理（规划中）](#12-角色小组与题目管理规划中)
 
 ---
 
@@ -71,8 +72,36 @@ CREATE TABLE IF NOT EXISTS questions (
     answer     TEXT,                    -- 编辑器中展示的模板代码
     tail       TEXT,                    -- 测试用例，拼接在用户代码之后
     cpu_limit  INT DEFAULT 1,           -- 秒
-    mem_limit  INT DEFAULT 30           -- MB
+    mem_limit  INT DEFAULT 30,          -- MB
+    scope      VARCHAR(16) NOT NULL DEFAULT 'global'   -- global 或小组 id
 );
+
+-- 用户 / 角色 / 小组（规划中的特性，见 SPEC.md 第14节）
+CREATE TABLE IF NOT EXISTS users (
+    id            INT PRIMARY KEY AUTO_INCREMENT,
+    username      VARCHAR(64) NOT NULL UNIQUE,
+    password_hash VARCHAR(64) NOT NULL,           -- Hash(password + salt)
+    salt          VARCHAR(20) NOT NULL,           -- 注册时的时间戳
+    role          VARCHAR(16) NOT NULL DEFAULT 'user',  -- admin / leader / user
+    created_at    DATETIME
+);
+
+CREATE TABLE IF NOT EXISTS groups (
+    id          INT PRIMARY KEY AUTO_INCREMENT,
+    name        VARCHAR(64) NOT NULL,
+    owner_id    INT NOT NULL,                     -- 负责人用户 id
+    invite_code VARCHAR(32) NOT NULL UNIQUE,
+    created_at  DATETIME
+);
+
+CREATE TABLE IF NOT EXISTS group_members (
+    group_id INT NOT NULL,
+    user_id  INT NOT NULL,
+    PRIMARY KEY (group_id, user_id)
+);
+
+-- 种子管理员（hash / salt 由应用运行时生成）：
+-- INSERT INTO users (username, password_hash, salt, role) VALUES ('admin', '<hash>', '<时间戳>', 'admin');
 
 CREATE USER IF NOT EXISTS 'oj_client'@'localhost' IDENTIFIED BY '1234';
 CREATE USER IF NOT EXISTS 'oj_client'@'127.0.0.1' IDENTIFIED BY '1234';
@@ -81,8 +110,11 @@ GRANT ALL PRIVILEGES ON oj.* TO 'oj_client'@'127.0.0.1';
 FLUSH PRIVILEGES;
 ```
 
+> **升级说明：** 已有安装可执行
+> `ALTER TABLE questions ADD COLUMN scope VARCHAR(16) NOT NULL DEFAULT 'global' AFTER mem_limit;` 追加该列。
+
 > **列顺序说明：** 网关通过 `SELECT *` 按位置读取字段，顺序为：
-> `id, title, rank, desc, header, answer, tail, cpu_limit, mem_limit`。
+> `id, title, rank, desc, header, answer, tail, cpu_limit, mem_limit, scope`。
 > 若希望使用不同的列顺序或名称，请调整表结构以匹配 `oj_server/oj_mysqlmodel.hpp` 中的读取顺序。
 
 插入一道示例题目（判断回文数）：
@@ -241,9 +273,12 @@ curl -X POST http://localhost:8080/judge/1 \
    - `header` 为隐藏头（如 `#include` 行与辅助函数），
    - `answer` 为在线编辑器中展示的模板代码，
    - `tail` 为测试驱动（包含 `main` 与测试用例），与用户实现的 `solve(...)` 链接。
-3. 网关每次请求都会查询 MySQL，因此 `/all_questions` 能立即看到新题目，无需重启。
+3. `scope` 设为 `global`（全体可见）或**小组 id**（仅该组组长与成员可见 —— 规划中的特性）。
+4. 网关每次请求都会查询 MySQL，因此 `/all_questions` 能立即看到新题目，无需重启。
 
-> 仓库中还附带一套基于文件的替代模型（`oj_filemodel.hpp`），从 `oj_server/questions/` + `questions.list` 读取题目。它**并非**当前启用模型；如需切换，请修改 `oj_control.hpp` 与 `oj_view.hpp` 中的 `using namespace` 行。
+> 仓库中还附带一套基于文件的替代模型（`oj_filemodel.hpp`），从 `oj_server/questions/` + `questions.list` 读取题目。它**并非**当前启用模型；如需切换，请修改 `oj_control.hpp` 与 `oj_view.hpp` 中的 `using namespace` 行。`questions.list` 每行为 `id title rank cpu_limit mem_limit scope`（6 列；缺省 `scope` 视为 `global`），每题目录 `questions/{id}/` 内含 `desc.txt`、`header.cpp`、`answer.cpp`、`tail.cpp`。
+
+> **规划中：** 未来将通过 `POST /api/questions`、`PUT /api/questions/{id}`、`DELETE /api/questions/{id}` 接口（配合 `template_html/` 下、由 `oj_server/oj_view.hpp` 的 `View` 类渲染的 HTML+CSS+JS 管理页面）在界面中新增/修改/删除题目，持久化到 MySQL 或文件模型。
 
 ## 10. 运维与维护
 
@@ -271,3 +306,27 @@ curl -X POST http://localhost:8080/judge/1 \
 | 编译报错提示找不到 `g++` | 编译服务器进程的 `PATH` 中没有 `g++` —— 请安装。 |
 | 每次判题都返回 `status == -2` | 编译服务器内部错误 —— 查看其 `logfiles/` 下的日志。 |
 | 端口 `8080` 被占用 | 修改 `oj_server.cpp` 中的监听端口并重新编译。 |
+
+## 12. 角色、小组与题目管理（规划中）
+
+> 该特性集为**规划中**（见 [SPEC.md 第14节](SPEC.md#14-待办清单todo)），尚未接入网关。数据库表已在[数据库初始化](#3-数据库初始化)中定义；工作目录 `oj_server/user/` 与 `oj_server/question_manage/` 目前为占位。所有前端页面均使用纯 HTML + CSS + JS。
+
+**角色**
+
+| 角色 | 权限 |
+| --- | --- |
+| `admin`（管理员） | 修改其他用户角色等级；发布全局题；可见并管理所有题目 |
+| `leader`（负责人） | 拥有小组；通过可更换的邀请码拉人；在组内发布题目 |
+| `user`（普通用户） | 凭邀请码加入小组；可见全局题 + 所在组题目；提交评测 |
+
+**实现后的典型操作**
+
+1. 注册/种子化第一个 `admin`（见[数据库初始化](#3-数据库初始化)中被注释的 `INSERT`）。
+2. `POST /api/register` 创建普通用户；`POST /api/login` 返回 token（受保护调用携带 `Authorization: Bearer <token>`）。
+3. 管理员提升用户：`PUT /api/users/{id}/role`。
+4. 负责人创建小组：`POST /api/groups` → 返回 `invite_code`；可随时用 `POST /api/groups/{id}/invite` 重置。
+5. 用户凭 `POST /api/groups/join` `{"invite_code": "..."}` 加入小组。
+6. 管理员/负责人通过 `GET /question_manage` 界面（或直接 `POST /api/questions`）发布题目，`scope = global` 或小组 id；用 `PUT`/`DELETE /api/questions/{id}` 修改/删除。
+7. `GET /all_questions`、`GET /question/{id}`、`POST /judge/{id}` 按当前用户的角色与所属小组过滤。
+
+**密码** 以 `Hash(password + salt)` 存储，盐值为注册时的时间戳 —— 不以明文落库。不引入第三方加密库。

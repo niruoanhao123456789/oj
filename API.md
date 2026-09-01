@@ -12,10 +12,13 @@ HTTP API reference for the load-balanced online judge. Two services expose HTTP 
 ## Table of Contents
 
 - [Conventions](#conventions)
+- [Roles & Permissions](#roles--permissions)
 - [GET /all_questions](#get-all_questions)
 - [GET /question/{id}](#get-questionid)
 - [POST /judge/{id}](#post-judgeid)
 - [POST /compile_and_run (internal)](#post-compile_and_run-internal)
+- [Auth & Groups (planned)](#auth--groups-planned)
+- [Question Management (planned)](#question-management-planned)
 - [Judge Result Status Codes](#judge-result-status-codes)
 - [Static Assets](#static-assets)
 - [Notes on Load Balancing](#notes-on-load-balancing)
@@ -29,8 +32,28 @@ HTTP API reference for the load-balanced online judge. Two services expose HTTP 
 - Question pages return `text/html; charset=utf-8`.
 - All question IDs are numeric and are matched by the gateway via the regular expression `(\d+)`.
 - Unless stated otherwise, an `id` in a path is the **question id** stored in the database (e.g. `1`, `2`).
+- **Authentication (planned):** protected endpoints require a token obtained from `POST /api/login`, sent as `Authorization: Bearer <token>`.
 
 ---
+
+## Roles & Permissions
+
+> The role/group system is a **planned** feature (see [SPEC.md §14](SPEC.md#14-待办清单todo)); the endpoints below that rely on it are not yet wired into the gateway.
+
+| Role | Permissions |
+| --- | --- |
+| `admin` (super admin) | Highest permission: change other users' roles, publish **global** questions (visible to everyone), view/manage **all** questions. |
+| `leader` | Owns a group; invites others via a replaceable invite code; publishes questions **within the group** (visible only to group members). |
+| `user` | Joins groups with an invite code; sees global questions + questions of groups they joined; submits code. No question/role management. |
+
+Visibility of questions:
+
+| Question scope | admin | leader | user |
+| --- | --- | --- | --- |
+| global | ✓ | ✓ | ✓ |
+| group (`scope = group_id`) | ✓ (all) | ✓ (own group) | ✓ (joined groups) |
+
+Passwords are stored as `Hash(password + salt)` where the salt is the registration timestamp; never plaintext.
 
 ## GET /all_questions
 
@@ -45,7 +68,9 @@ Returns the question list page as HTML.
 - `200 OK`
 - `Content-Type: text/html; charset=utf-8`
 
-The page renders a table of all questions — each row links to `GET /question/{id}`. No JSON body is returned.
+The page renders a table of all questions visible to the current user (global + own groups) — each row links to `GET /question/{id}`. No JSON body is returned.
+
+> Visibility filtering is **planned**; today the page lists every question in the store.
 
 **Example**
 
@@ -71,6 +96,8 @@ Returns the page for a single question, including its description, difficulty, a
 - `Content-Type: text/html; charset=utf-8`
 
 The page embeds the question data and pre-code; submitting from the editor `POST`s to `/judge/{id}` (see below).
+
+> Access control is **planned**: non-visible questions return an access-denied notice.
 
 **Example**
 
@@ -122,6 +149,8 @@ curl -X POST http://localhost:8080/judge/1 \
 | `reason` | string | Human-readable result description (Chinese). |
 | `stdout` | string | Program standard output. Present only when `status == 0`. |
 | `stderr` | string | Program standard error. Present only when `status == 0`. |
+
+> **Planned:** only questions visible to the current user may be judged.
 
 **Example response (success)**
 
@@ -181,6 +210,104 @@ curl -X POST http://localhost:8080/judge/1 \
 - `Content-Type: application/json; charset=utf-8`
 
 **Response body** — identical to [`/judge/{id}`](#post-judgeid).
+
+---
+
+## Auth & Groups (planned)
+
+> All endpoints below are **planned** (see [SPEC.md §14](SPEC.md#14-待办清单todo)) and not yet wired into the gateway. JSON in / JSON out, `application/json; charset=utf-8`.
+
+### POST /api/register
+
+**Request body:** `{"username": "<string>", "password": "<string>"}`
+
+Creates a user with role `user`. The password is stored as `Hash(password + salt)` where `salt` is the registration timestamp.
+
+**Response:** `200 OK` — `{"ok": true, "message": "..."}`
+
+### POST /api/login
+
+**Request body:** `{"username": "<string>", "password": "<string>"}`
+
+**Response:** `200 OK` — `{"token": "<session-token>", "username": "<...>", "role": "user"}`
+
+The returned token is carried on subsequent protected requests as `Authorization: Bearer <token>`.
+
+### POST /api/groups
+
+Creates a group (leader only).
+
+**Request body:** `{"name": "<string>"}`
+
+**Response:** `200 OK` — `{"ok": true, "group_id": 1, "invite_code": "XXXXXX"}`
+
+### POST /api/groups/join
+
+Joins a group with an invite code (regular user).
+
+**Request body:** `{"invite_code": "XXXXXX"}`
+
+**Response:** `200 OK` — `{"ok": true, "group_id": 1}`
+
+### POST /api/groups/{id}/invite
+
+Regenerates the group's invite code (that group's leader only). The old code is invalidated.
+
+**Response:** `200 OK` — `{"ok": true, "invite_code": "NEWCODE"}`
+
+### PUT /api/users/{id}/role
+
+Changes a user's role (admin only).
+
+**Request body:** `{"role": "admin" | "leader" | "user"}`
+
+**Response:** `200 OK` — `{"ok": true, "message": "..."}`
+
+---
+
+## Question Management (planned)
+
+> **Planned** endpoints for creating, editing, and deleting questions. The frontend pages are plain **HTML + CSS + JS**, rendered by the `View` class in `oj_server/oj_view.hpp` (ctemplate); the form content is packed into JSON and submitted to the APIs below. The gateway persists into the active model — MySQL `questions` table (with the `scope` column) or the file-based `questions/` model (6-column `questions.list` + `questions/{id}/`).
+
+### POST /api/questions
+
+Creates a question (admin publishes global questions, leader publishes within their own group).
+
+**Request body:**
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `title` | string | yes | Question title |
+| `rank` | string | yes | 简单 / 中等 / 困难 |
+| `desc` | string | no | Description |
+| `header` | string | no | Hidden prologue code |
+| `answer` | string | no | Starter code for the editor |
+| `tail` | string | no | Test-case driver code |
+| `cpu_limit` | integer | yes | Seconds |
+| `mem_limit` | integer | yes | MB |
+| `scope` | string | yes | `global` or a group id |
+
+**Response:** `200 OK` — `{"ok": true, "id": 3}`
+
+### PUT /api/questions/{id}
+
+Updates an existing question (admin any; leader only their own group's questions). Body identical to `POST /api/questions`.
+
+**Response:** `200 OK` — `{"ok": true, "message": "..."}`
+
+### DELETE /api/questions/{id}
+
+Deletes a question (admin any; leader only their own group's questions).
+
+**Response:** `200 OK` — `{"ok": true, "message": "..."}`
+
+### Question management pages
+
+| Path | Method | Description |
+| --- | --- | --- |
+| `GET /question_manage` | GET | Management list page (`question_manage.html`): edit/delete per row, create button on top |
+| `GET /question_manage/edit` | GET | Create form page (`question_edit.html`) |
+| `GET /question_manage/edit/{id}` | GET | Edit form page (`question_edit.html`, pre-filled) |
 
 ---
 
