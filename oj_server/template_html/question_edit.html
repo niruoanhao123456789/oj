@@ -84,6 +84,8 @@
             border-radius: 18px; box-shadow: var(--shadow); padding: 28px;
         }
         .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; }
+        .pair-row { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+        .pair-row .field { margin-bottom: 0; }
         .field { margin-bottom: 18px; }
         .field.full { grid-column: 1 / -1; }
         .field label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; letter-spacing: 1px; }
@@ -162,17 +164,19 @@
                         {{/scope_options}}
                     </select>
                 </div>
-                <div class="field">
-                    <label>CPU 时间限制（秒）</label>
-                    <input id="cpu_limit" type="number" min="1" value="1">
+                <div class="pair-row">
+                    <div class="field">
+                        <label>CPU 时间限制（秒）</label>
+                        <input id="cpu_limit" type="number" min="1" value="1">
+                    </div>
+                    <div class="field">
+                        <label>内存限制（MB）</label>
+                        <input id="mem_limit" type="number" min="1" value="30">
+                    </div>
                 </div>
-                <div class="field">
-                    <label>内存限制（MB）</label>
-                    <input id="mem_limit" type="number" min="1" value="30">
-                </div>
-                <div class="field">
+                <div class="field full">
                     <label>初始代码（answer，在线编辑器预填）</label>
-                    <input id="answer" placeholder="// 用户编辑器的起始代码">
+                    <textarea id="answer" placeholder="// 用户编辑器的起始代码"></textarea>
                 </div>
                 <div class="field full">
                     <label>题目描述（desc）</label>
@@ -227,7 +231,7 @@
             fetch(url, { headers: HDR })
                 .then(function (r) { return r.text(); })
                 .then(function (html) {
-                    if (html.indexOf('id="oj-msg-page"') !== -1) { location.href = url; return; }
+                    if (html.indexOf('id="oj-msg' + '-page"') !== -1) { location.href = url; return; }
                     document.open(); document.write(html); document.close();
                 })
                 .catch(function () { location.href = url; });

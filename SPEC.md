@@ -517,9 +517,10 @@
 | `test_filemodel.cpp` | `FileModelTest` | 6 | `questions.list` 6/5 列解析（缺省 `scope`）、`AddQuestion` 分配 `max(id)+1`、`UpdateQuestion` 覆盖四文件并重建列表、`DeleteQuestion`、列表数字升序重写、删除不存在的题返回失败 |
 | `test_mysqlmodel.cpp` | `MysqlModelTest` | 2 | `Add/Update/Delete` 往返（id 回填、字段与 `scope` 持久化）、转义防注入 |
 | `test_session.cpp` | `SessionTest` | 4 | token 会话创建/获取、token 唯一性、未知 token 返回失败、盐为数字时间戳 |
-| `test_group.cpp` | `GroupModelTest` | 2 | 创建后删除生效、删除级联清除成员关系与组内题目（MySQL 不可用时跳过） |
+| `test_group.cpp` | `GroupModelTest` | 6 | 创建后删除生效、删除级联清除成员关系与组内题目、同一负责人创建多组且邀请码唯一、凭邀请码加入与重复加入失败、重置小组邀请码后旧码失效、组间可见性数据隔离（MySQL 不可用时跳过） |
+| `test_api_auth.cpp` | `ApiAuthTest` | 6 | 依据 API（§5.5/§5.6/§5.11/§5.12）：重复用户名注册被拒、注册角色持久化 + 登录签发会话、未知用户名登录失败、管理员邀请码重置生命周期（新码生效/旧码失效）、负责人注册需有效邀请码、角色修改往返（MySQL 不可用时跳过） |
 
-共 **24** 个用例、**9** 个测试套件。
+共 **34** 个用例、**10** 个测试套件。
 
 ### 11.3 测试基础设施
 

@@ -72,7 +72,7 @@ sudo apt install -y g++ make mysql-server libjsoncpp-dev libcpp-httplib-dev \
 - **Roles & groups** — three roles: **admin** (super admin, manages roles, generates the leader-registration invite code, publishes global questions), **leader** (owns groups, invites members via replaceable invite codes, publishes group-only questions), and **user** (joins groups with an invite code, sees global + own-group questions).
 - **Question management** — admins/leaders create, edit, and delete questions through HTML+CSS+JS pages (rendered by the `View` class in `oj_server/oj_view.hpp`); the form content is posted as JSON and persisted into MySQL or the file-based `questions/` model.
 - **Timestamp-salted password hashing** — passwords are stored as `Hash(password + salt)` with the registration timestamp as the salt; never stored in plaintext.
-- **Unit testing with Google Test** — `make test` builds and runs the gtest suite in `tests/unit/` (22 test cases across 8 suites), covering password hashing, both question models, and the in-memory session store.
+- **Unit testing with Google Test** — `make test` builds and runs the gtest suite in `tests/unit/` (34 test cases across 10 suites), covering password hashing, both question models (file + MySQL), in-memory sessions, and the user/group model that backs the register/login, admin-invite, role, and group APIs.
 
 ## Architecture
 

@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>在线OJ · 人文科技判题平台</title>
+    <title>在线OJ · 在线判题平台</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=Noto+Serif+SC:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -283,13 +283,13 @@
 
         /* ===== Stats strip ===== */
         .stats {
-            max-width: 1200px;
+            max-width: 1080px;
             margin: -58px auto 0;
             position: relative;
             z-index: 10;
             padding: 0 32px;
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 24px;
         }
         .stat-card {
@@ -305,7 +305,7 @@
         .stat-card:hover { transform: translateY(-6px); box-shadow: 0 26px 50px -24px rgba(2, 44, 84, 0.3); }
         .stat-card .num {
             font-family: "JetBrains Mono", monospace;
-            font-size: 38px; font-weight: 600;
+            font-size: clamp(26px, 3vw, 36px); font-weight: 600;
             background: linear-gradient(120deg, var(--sky-600), var(--sky-400));
             -webkit-background-clip: text;
             background-clip: text;
@@ -440,7 +440,6 @@
 
         /* ===== Responsive ===== */
         @media (max-width: 1024px) {
-            .stats { grid-template-columns: repeat(2, 1fr); }
             .features { grid-template-columns: repeat(2, 1fr); }
         }
         @media (max-width: 768px) {
@@ -450,7 +449,7 @@
             .features { grid-template-columns: 1fr; }
             .steps { grid-template-columns: 1fr; }
             .step .arrow { display: none; }
-            .stats { grid-template-columns: 1fr 1fr; margin-top: -40px; padding: 0 20px; }
+            .stats { grid-template-columns: 1fr; margin-top: -40px; padding: 0 20px; }
             .footer-inner { flex-direction: column; text-align: center; }
             .hero-actions { flex-direction: column; align-items: center; }
         }
@@ -485,7 +484,7 @@
 
         <p class="motto"> 每一次提交，都是探索的足迹</p>
 
-        <p class="hero-sub">精选算法题库，多语言实时评测，负载均衡调度海量判题请求。在线提交代码，即刻获取评测结果，与同好共赴编程之海。</p>
+        <p class="hero-sub">面向 C++ 的在线评测平台：全局题库与小组共创题库并举，隐藏测试用例严格判定。负载均衡调度多判题节点，提交代码即刻获得评测结果。</p>
 
         <div class="hero-actions">
             <a class="btn btn-sky js-enter" href="/all_questions">
@@ -511,27 +510,23 @@
     cout &lt;&lt; <span class="c-str">"Hello, OJ!"</span> &lt;&lt; endl;
     <span class="c-key">return</span> <span class="c-num">0</span>;
 }
-<span class="c-cmt">// 评测通过 ✓</span> <span class="c-ok">Accepted · 12ms</span></div>
+<span class="c-cmt">// 测试用例通过: 8 / 8（100%）</span> <span class="c-ok">Accepted</span></div>
         </div>
     </section>
 
     <!-- ===== Stats ===== -->
     <div class="stats">
         <div class="stat-card">
-            <div class="num">500+</div>
-            <div class="label">精选题库</div>
+            <div class="num">C++20</div>
+            <div class="label">g++ 编译 · 沙箱实时评测</div>
         </div>
         <div class="stat-card">
-            <div class="num">6</div>
-            <div class="label">多语言支持</div>
+            <div class="num">多节点</div>
+            <div class="label">负载均衡 · 故障自动容错</div>
         </div>
         <div class="stat-card">
-            <div class="num">&lt;2s</div>
-            <div class="label">平均评测耗时</div>
-        </div>
-        <div class="stat-card">
-            <div class="num">99.9%</div>
-            <div class="label">服务可用性</div>
+            <div class="num">小组共创</div>
+            <div class="label">邀请码组队 · 组内专属题库</div>
         </div>
     </div>
 
@@ -549,7 +544,7 @@
                     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
                 </div>
                 <h3>负载均衡调度</h3>
-                <p>多判题节点协同工作，海量提交自动分流，高峰期依旧从容稳定。</p>
+                <p>多判题节点协同工作，提交自动分发至负载最低的节点；节点故障自动下线容错，高峰期依旧从容稳定。</p>
                 <span class="more">了解更多
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                 </span>
@@ -559,8 +554,8 @@
                 <div class="feature-icon">
                     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
                 </div>
-                <h3>支持C++语言实时评测</h3>
-                <p>秒级反馈评测结果。</p>
+                <h3>C++20 实时评测</h3>
+                <p>g++ 编译并在沙箱内施加 CPU、内存限制，在线提交代码秒级返回编译运行与评测结果。</p>
                 <span class="more">了解更多
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                 </span>
@@ -568,10 +563,10 @@
 
             <div class="feature-card reveal">
                 <div class="feature-icon">
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 12a11 11 0 0 1-22 0 11 11 0 0 1 22 0z"/><polyline points="12 2 12 12 16 16"/></svg>
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 </div>
-                <h3>毫秒级即时反馈</h3>
-                <p>从编译到运行全程透明，AC / WA / TLE 一目了然，问题定位更高效。</p>
+                <h3>全局题库 · 小组共创</h3>
+                <p>管理员发布全局题供全员练习，负责人建组在组内发题，成员凭邀请码加入，共同组队刷题。</p>
                 <span class="more">了解更多
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                 </span>
@@ -593,7 +588,7 @@
                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                 </span>
                 <h3>选择题目</h3>
-                <p>数百道精选算法题，难度分级，从入门到进阶一路畅行。</p>
+                <p>登录后浏览全局题与你所在小组的题目，难度分级，从入门到进阶一路畅行。</p>
                 <svg class="arrow" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
             </div>
             <div class="step reveal">
@@ -601,7 +596,7 @@
                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
                 </span>
                 <h3>提交代码</h3>
-                <p>多语言在线编辑器，一键提交，语法高亮，书写行云流水。</p>
+                <p>浏览器内代码编辑器已预填初始代码，直接编写 C++ 题解，一键提交等待评测。</p>
                 <svg class="arrow" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
             </div>
             <div class="step reveal">
@@ -609,7 +604,7 @@
                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 </span>
                 <h3>即时评测</h3>
-                <p>负载均衡调度判题节点，安全沙箱运行，秒级返回评测报告。</p>
+                <p>隐藏测试用例严格判定，负载均衡调度判题节点安全运行，秒级返回通过情况。</p>
             </div>
         </div>
     </section>
@@ -659,7 +654,7 @@
     </script>
 
     <script>
-        // ---- 首页登录态与导航 ----
+        // ---- 首页悬浮导航与登录态 ----
         (function () {
             var TOKEN = (function(){ try { return localStorage.getItem('oj_token') || ''; } catch(e){ return ''; } })();
             var USER = (function(){ try { return localStorage.getItem('oj_username') || ''; } catch(e){ return ''; } })();
@@ -671,21 +666,18 @@
                 fetch(url, { headers: headers })
                     .then(function (r) { return r.text(); })
                     .then(function (html) {
-                        if (html.indexOf('id="oj-msg-page"') !== -1) { location.href = url; return; }
+                        // 服务端返回登录引导页(MessagePage)说明登录态失效, 直接去登录页
+                        if (html.indexOf('id="oj-msg' + '-page"') !== -1) { location.href = '/login'; return; }
                         document.open(); document.write(html); document.close();
                     })
-                    .catch(function () { location.href = url; });
+                    .catch(function () { location.href = '/login'; });
             }
 
             function renderNav() {
                 var box = document.getElementById('navLinks');
                 if (!box) return;
                 if (TOKEN && USER) {
-                    var links = '<a href="/all_questions" data-fetch="1">题目列表</a>'
-                        + '<a href="/group_manage" data-fetch="1">小组</a>';
-                    if (ROLE === 'admin' || ROLE === 'leader') links += '<a href="/question_manage" data-fetch="1">题目管理</a>';
-                    box.innerHTML = links
-                        + '<span class="nav-user" title="' + USER + '">' + USER + '<em>' + (roleMap[ROLE] || ROLE) + '</em></span>'
+                    box.innerHTML = '<span class="nav-user" title="' + USER + '">' + USER + '<em>' + (roleMap[ROLE] || ROLE) + '</em></span>'
                         + '<a href="#" class="out" id="navLogout">退出</a>';
                     var lo = document.getElementById('navLogout');
                     if (lo) lo.addEventListener('click', function (ev) {
@@ -695,6 +687,7 @@
                             localStorage.removeItem('oj_username');
                             localStorage.removeItem('oj_role');
                             sessionStorage.removeItem('oj_auth_fetched');
+                            sessionStorage.removeItem('oj_msg_retry');
                         } catch (err) { }
                         location.href = '/login';
                     });
@@ -704,15 +697,7 @@
             }
             renderNav();
 
-            // 带登录态的页面内跳转(仅内部页面链接带 data-fetch)
-            document.addEventListener('click', function (e) {
-                var a = e.target.closest ? e.target.closest('a[data-fetch]') : null;
-                if (!a) return;
-                e.preventDefault();
-                navFetch(a.href);
-            });
-
-            // “开始刷题 / 立即开始刷题 / 题目广场”: 已登录进题目列表, 未登录跳转登录/注册
+            // “开始刷题 / 立即开始刷题 / 题目广场”: 已登录进题目列表, 未登录直接进入登录页
             var enters = document.querySelectorAll('.js-enter');
             for (var i = 0; i < enters.length; i++) {
                 enters[i].addEventListener('click', function (ev) {

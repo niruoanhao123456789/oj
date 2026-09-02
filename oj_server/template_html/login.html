@@ -177,7 +177,7 @@
                                 fetch('/all_questions', { headers: { 'Authorization': 'Bearer ' + tk } })
                                     .then(function (r) { return r.text(); })
                                     .then(function (html) {
-                                        if (html.indexOf('id="oj-msg-page"') === -1) { document.open(); document.write(html); document.close(); }
+                                        if (html.indexOf('id="oj-msg' + '-page"') === -1) { document.open(); document.write(html); document.close(); }
                                         else { location.href = '/all_questions'; }
                                     })
                                     .catch(function () { location.href = '/all_questions'; });

@@ -194,7 +194,7 @@
             fetch(url, { headers: HDR })
                 .then(function (r) { return r.text(); })
                 .then(function (html) {
-                    if (html.indexOf('id="oj-msg-page"') !== -1) { location.href = url; return; }
+                    if (html.indexOf('id="oj-msg' + '-page"') !== -1) { location.href = url; return; }
                     document.open(); document.write(html); document.close();
                 })
                 .catch(function () { location.href = url; });
