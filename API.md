@@ -68,7 +68,7 @@ Returns the question list page as HTML.
 - `200 OK`
 - `Content-Type: text/html; charset=utf-8`
 
-The page renders a table of all questions visible to the current user (global + own groups) — each row links to `GET /question/{id}`. No JSON body is returned. Anonymous visitors see only `global` questions; admins see all; leaders and regular users are filtered by their groups.
+The page renders a table of all questions visible to the current user (global + own groups) — each row links to `GET /question/{id}`. No JSON body is returned. **Login is required** (anonymous visitors are guided to log in); after login, admins see all questions while leaders and regular users are filtered by their groups.
 
 **Example**
 
@@ -93,7 +93,7 @@ Returns the page for a single question, including its description, difficulty, a
 - `200 OK`
 - `Content-Type: text/html; charset=utf-8`
 
-The page embeds the question data and pre-code; submitting from the editor `POST`s to `/judge/{id}` (see below). Questions the current user cannot see (non-global, not in their groups, and not admin/leader-own-group) return an access-denied notice.
+The page embeds the question data and pre-code; submitting from the editor `POST`s to `/judge/{id}` (see below). **Login is required** (anonymous visitors are guided to log in). Questions the logged-in user cannot see (non-global, not in their groups, and not admin/leader-own-group) return an access-denied notice.
 
 **Example**
 
@@ -148,7 +148,7 @@ curl -X POST http://localhost:8080/judge/1 \
 | `pass_count` | integer | Passed hidden cases. Present when `status == 0` and the driver reports via the PASSRATE protocol. |
 | `total_count` | integer | Total hidden cases. Present when `status == 0` and the driver reports via the PASSRATE protocol. |
 
-> Visibility is enforced: only questions visible to the current user may be judged (anonymous visitors may only judge `global` questions).
+> **Access & visibility:** only logged-in users may submit a judge (anonymous requests are told to log in first); among logged-in users, only questions visible to them may be judged.
 >
 > **Result presentation (LeetCode style):** errors are returned as before (`status != 0`). When `status == 0` with `pass_count`/`total_count`, the answer page shows only "Testcases passed: X / Y (percentage)" — it never lists which individual cases passed.
 

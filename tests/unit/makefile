@@ -2,7 +2,7 @@ CXX = g++
 CXXFLAGS = -std=c++20 -g -Wall
 GTEST_LIBS = -lgtest -lgtest_main -lpthread -lmysqlclient
 
-TESTS = test_passwd test_question test_filemodel test_mysqlmodel test_session
+TESTS = test_passwd test_question test_filemodel test_mysqlmodel test_session test_group
 
 unit_tests: $(addsuffix .o,$(TESTS))
 	$(CXX) -o $@ $^ $(GTEST_LIBS)

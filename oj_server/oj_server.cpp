@@ -109,6 +109,11 @@ int main()
         ctrl.ResetInviteCode(req.get_header_value("Authorization"),req.matches[1],&out_json);
         resp.set_content(out_json,"application/json; charset=utf-8");
     });
+    svr.Delete(R"(/api/groups/(\d+))",[&ctrl](const Request& req,Response& resp){
+        std::string out_json;
+        ctrl.DeleteGroup(req.get_header_value("Authorization"),req.matches[1],&out_json);
+        resp.set_content(out_json,"application/json; charset=utf-8");
+    });
 
     // 角色管理
     svr.Put(R"(/api/users/(\d+)/role)",[&ctrl](const Request& req,Response& resp){

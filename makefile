@@ -39,4 +39,7 @@ clean:
 	cd tests/unit;\
 	make clean;\
 	cd -;\
+	cd tests/example;\
+	make clean;\
+	cd -;\
 	rm -rf output;

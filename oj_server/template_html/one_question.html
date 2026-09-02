@@ -261,11 +261,7 @@
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
             <h1>在线<em>OJ</em></h1>
         </a>
-        <nav>
-            <a class="link" href="/all_questions" data-fetch="1">题目列表</a>
-            <a class="link" href="/group_manage" data-fetch="1">小组</a>
-            <div class="user-area" id="userArea"></div>
-        </nav>
+        <nav id="mainNav"></nav>
     </header>
 
     <div class="container">
@@ -340,14 +336,20 @@
         // ---- 登录态与鉴权导航 ----
         var TOKEN = (function(){ try { return localStorage.getItem('oj_token') || ''; } catch(e){ return ''; } })();
         var HDR = TOKEN ? { 'Authorization': 'Bearer ' + TOKEN } : {};
+        var ROLE = (function(){ try { return localStorage.getItem('oj_role') || ''; } catch(e){ return ''; } })();
+        var USER = (function(){ try { return localStorage.getItem('oj_username') || ''; } catch(e){ return ''; } })();
+        var roleMap = { admin: '管理员', leader: '负责人', user: '普通用户' };
+        var NAV_CLS = 'link';
+        var pageExtra = '';
 
         function navFetch(url) {
             fetch(url, { headers: HDR })
                 .then(function (r) { return r.text(); })
                 .then(function (html) {
-                    if (html.indexOf('id="oj-msg-page"') === -1) { document.open(); document.write(html); document.close(); }
+                    if (html.indexOf('id="oj-msg-page"') !== -1) { location.href = url; return; }
+                    document.open(); document.write(html); document.close();
                 })
-                .catch(function () { });
+                .catch(function () { location.href = url; });
         }
         document.addEventListener('click', function (e) {
             var a = e.target.closest ? e.target.closest('a[data-fetch]') : null;
@@ -356,44 +358,39 @@
             navFetch(a.href);
         });
 
-        (function userArea() {
-            var area = document.getElementById('userArea');
-            if (!area) return;
-            var u = (function(){ try { return localStorage.getItem('oj_username') || ''; } catch(e){ return ''; } })();
-            var r = (function(){ try { return localStorage.getItem('oj_role') || ''; } catch(e){ return ''; } })();
-            var roleMap = { admin: '管理员', leader: '负责人', user: '普通用户' };
-            var html;
-            if (TOKEN && u) {
-                html = '<span class="user-chip" title="' + u + '">'
+        function renderHeader() {
+            var nav = document.getElementById('mainNav');
+            if (!nav) return;
+            if (TOKEN && USER) {
+                var links = '<a class="' + NAV_CLS + '" href="/all_questions" data-fetch="1">题目列表</a>'
+                    + '<a class="' + NAV_CLS + '" href="/group_manage" data-fetch="1">小组</a>';
+                if (ROLE === 'admin' || ROLE === 'leader') links += '<a class="' + NAV_CLS + '" href="/question_manage" data-fetch="1">题目管理</a>';
+                links += pageExtra;
+                nav.innerHTML = links
+                    + '<div class="user-area" id="userArea">'
+                    + '<span class="user-chip" title="' + USER + '">'
                     + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
-                    + u + '<em>' + (roleMap[r] || r) + '</em></span>'
-                    + ((r === 'admin' || r === 'leader') ? '<a href="/question_manage" data-fetch="1">题目管理</a>' : '')
-                    + '<a href="#" class="logout" id="logoutBtn">退出</a>';
+                    + USER + '<em>' + (roleMap[ROLE] || ROLE) + '</em></span>'
+                    + '<a href="#" class="logout" id="logoutBtn">退出</a>'
+                    + '</div>';
+                var lo = document.getElementById('logoutBtn');
+                if (lo) lo.addEventListener('click', function (ev) {
+                    ev.preventDefault();
+                    try {
+                        localStorage.removeItem('oj_token');
+                        localStorage.removeItem('oj_username');
+                        localStorage.removeItem('oj_role');
+                        sessionStorage.removeItem('oj_auth_fetched');
+                    } catch (err) { }
+                    location.href = '/login';
+                });
             } else {
-                html = '<a href="/login" data-fetch="1">登录</a><a href="/register" data-fetch="1" class="reg">注册</a>';
+                nav.innerHTML = '<div class="user-area" id="userArea">'
+                    + '<a href="/login" data-fetch="1">登录</a><a href="/register" data-fetch="1" class="reg">注册</a>'
+                    + '</div>';
             }
-            area.innerHTML = html;
-            var lo = document.getElementById('logoutBtn');
-            if (lo) lo.addEventListener('click', function (ev) {
-                ev.preventDefault();
-                try {
-                    localStorage.removeItem('oj_token');
-                    localStorage.removeItem('oj_username');
-                    localStorage.removeItem('oj_role');
-                    sessionStorage.removeItem('oj_auth_fetched');
-                } catch (err) { }
-                location.href = '/login';
-            });
-        })();
-
-        // 若本地有 token 但页面按匿名渲染(直接输入网址进入), 携带 token 重新拉取以通过可见性校验
-        (function () {
-            var bodyLoggedIn = document.body.getAttribute('data-logged-in') === '1';
-            if (TOKEN && !bodyLoggedIn && !sessionStorage.getItem('oj_auth_fetched')) {
-                sessionStorage.setItem('oj_auth_fetched', '1');
-                navFetch(location.href);
-            }
-        })();
+        }
+        renderHeader();
 
         function setResult(cls, text) {
             var result = document.getElementById('result');

@@ -290,18 +290,23 @@ namespace oj_control
 
         //根据题目数据构建网页
         // html: 输出型参数
+        // 未登录不能访问(页面仅对登录用户开放); 已登录后按角色与小组过滤可见性
         void AllQuestions(const std::string& auth,std::string* html)
         {
+            oj_user_model::User cur;
+            if(!GetSessionUser(auth,&cur))
+            {
+                *html = MessagePage("请先登录","登录后才能浏览题目列表。");
+                return;
+            }
+
             std::vector<Question> all_questions;
             _model.GetAllQuestions(&all_questions);
 
-            oj_user_model::User cur;
-            bool logged = GetSessionUser(auth,&cur);
-
-            // 按当前用户的角色与所属小组过滤可见性(匿名仅见全局题)
+            // 按当前用户的角色与所属小组过滤可见性
             std::vector<Question> visible;
             for(const auto& q : all_questions)
-                if(CanAccessQuestion(logged ? &cur : nullptr,q))
+                if(CanAccessQuestion(&cur,q))
                     visible.push_back(q);
 
             sort(visible.begin(),visible.end(),
@@ -311,43 +316,56 @@ namespace oj_control
             });
 
             // 获取题目信息成功，将所有的题目数据构建成网页
-            _view.AllExpandHtml(visible,logged,html);
+            _view.AllExpandHtml(visible,true,html);
         }
 
         void OneQuestion(const std::string& auth,const std::string& id,std::string* html)
         {
+            oj_user_model::User cur;
+            if(!GetSessionUser(auth,&cur))
+            {
+                *html = MessagePage("请先登录","登录后才能查看与解答题目。");
+                return;
+            }
+
             Question q;
             _model.GetOneQuestion(id,&q);
-
-            oj_user_model::User cur;
-            bool logged = GetSessionUser(auth,&cur);
 
             if(q._id.empty())
             {
                 *html = MessagePage("题目不存在","该题目不存在或已被删除。");
                 return;
             }
-            if(!CanAccessQuestion(logged ? &cur : nullptr,q))
+            if(!CanAccessQuestion(&cur,q))
             {
-                LOG_WARNNING(GetLogger("oj_Logger"),"%s%s%s","visibility rejected! question: ",id.c_str(),(" user: " + (logged ? cur._username : "anonymous")).c_str());
+                LOG_WARNNING(GetLogger("oj_Logger"),"%s%s%s","visibility rejected! question: ",id.c_str(),(" user: " + cur._username).c_str());
                 *html = MessagePage("无法访问","这道题目仅对可见范围开放，你可能还未加入对应的小组。");
                 return;
             }
-            _view.OneExpandHtml(q,logged,html);
+            _view.OneExpandHtml(q,true,html);
         }
 
         void Judge(const std::string& auth,const std::string& id,const std::string& in_json,std::string* out_json)
         {
-            // 0. 根据题目编号，直接拿到对应的题目细节
+            // 0. 未登录不允许提交评测
+            oj_user_model::User cur;
+            if(!GetSessionUser(auth,&cur))
+            {
+                Json::Value out;
+                out["status"] = -2;
+                out["reason"] = "请先登录后再提交评测";
+                *out_json = WriteJson(out);
+                return;
+            }
+
+            // 1. 根据题目编号，直接拿到对应的题目细节
             Question q;
             _model.GetOneQuestion(id, &q);
 
-            // 0.5 可见性校验: 仅允许对当前用户可见的题目提交评测
-            oj_user_model::User cur;
-            bool logged = GetSessionUser(auth,&cur);
-            if(q._id.empty() || !CanAccessQuestion(logged ? &cur : nullptr,q))
+            // 1.5 可见性校验: 仅允许对当前用户可见的题目提交评测
+            if(q._id.empty() || !CanAccessQuestion(&cur,q))
             {
-                LOG_WARNNING(GetLogger("oj_Logger"),"%s%s%s","judge visibility rejected! question: ",id.c_str(),(" user: " + (logged ? cur._username : "anonymous")).c_str());
+                LOG_WARNNING(GetLogger("oj_Logger"),"%s%s%s","judge visibility rejected! question: ",id.c_str(),(" user: " + cur._username).c_str());
                 Json::Value out;
                 out["status"] = -2;
                 out["reason"] = "题目不可访问或不存在";
@@ -355,7 +373,7 @@ namespace oj_control
                 return;
             }
 
-            // 1. in_json进行反序列化，得到题目的id，得到用户提交源代码，input
+            // 2. in_json进行反序列化，得到题目的id，得到用户提交源代码，input
             Json::Reader reader;
             Json::Value in_value;
             reader.parse(in_json,in_value);
@@ -408,7 +426,7 @@ namespace oj_control
             }
         }
 
-        // ---------- 用户 / 角色 / 小组 (见 SPEC.md §5.5 ~ §5.10) ----------
+        // ---------- 用户 / 角色 / 小组 (见 SPEC.md §5.5 ~ §5.11) ----------
 
         // GET /register —— 注册页(可选普通用户/负责人, 负责人需管理员邀请码)
         void RegisterPage(std::string* html)
@@ -732,6 +750,8 @@ namespace oj_control
             }
             out["ok"] = true;
             out["group_id"] = g._id;
+            out["name"] = g._name;
+            out["created_at"] = g._created_at;
             *out_json = WriteJson(out);
         }
 
@@ -774,7 +794,52 @@ namespace oj_control
             *out_json = WriteJson(out);
         }
 
-        // ---------- 题目管理 (见 SPEC.md §5.12 ~ §5.15) ----------
+        // DELETE /api/groups/{id} —— 删除小组(管理员可删任意, 负责人仅限本组)
+        void DeleteGroup(const std::string& auth,const std::string& group_id,std::string* out_json)
+        {
+            Json::Value out;
+            oj_user_model::User cur;
+            if(!RequireUser(auth,&cur,&out))
+            {
+                *out_json = WriteJson(out);
+                return;
+            }
+            if(cur._role != "leader" && cur._role != "admin")
+            {
+                out["ok"] = false;
+                out["message"] = "需要负责人或管理员身份";
+                *out_json = WriteJson(out);
+                return;
+            }
+            int gid = std::atoi(group_id.c_str());
+            oj_user_model::Group g;
+            if(!_user_model.GetGroupById(gid,&g))
+            {
+                out["ok"] = false;
+                out["message"] = "小组不存在";
+                *out_json = WriteJson(out);
+                return;
+            }
+            if(cur._role != "admin" && g._owner_id != cur._id)
+            {
+                out["ok"] = false;
+                out["message"] = "仅小组负责人或管理员可删除小组";
+                *out_json = WriteJson(out);
+                return;
+            }
+            if(!_user_model.DeleteGroup(gid))
+            {
+                out["ok"] = false;
+                out["message"] = "删除小组失败";
+                *out_json = WriteJson(out);
+                return;
+            }
+            out["ok"] = true;
+            out["message"] = "小组已删除";
+            *out_json = WriteJson(out);
+        }
+
+        // ---------- 题目管理 (见 SPEC.md §5.13 ~ §5.16) ----------
 
         static bool ParseQuestionJson(const Json::Value& in,Question* q,std::string* err)
         {
@@ -829,8 +894,9 @@ namespace oj_control
                 "<h2 style=\"font-family:\"Noto Serif SC\",\"Songti SC\",serif;color:#0C4A6E;letter-spacing:1px;margin:0 0 12px;\">" + title + "</h2>"
                 "<p style=\"color:#64748B;margin:0 0 28px;line-height:1.8;\">" + message + "</p>"
                 "<div style=\"display:flex;gap:12px;justify-content:center;flex-wrap:wrap;\">"
-                "<a href=\"/all_questions\" style=\"display:inline-block;padding:10px 24px;border-radius:12px;background:#0EA5E9;color:#fff;text-decoration:none;\">返回题目列表</a>"
-                "<a href=\"/login\" style=\"display:inline-block;padding:10px 24px;border-radius:12px;background:#fff;color:#0369A1;border:1px solid #E0F2FE;text-decoration:none;\">去登录</a>"
+                "<a href=\"/\" style=\"display:inline-block;padding:10px 24px;border-radius:12px;background:#fff;color:#0369A1;border:1px solid #E0F2FE;text-decoration:none;\">返回首页</a>"
+                "<a href=\"/login\" style=\"display:inline-block;padding:10px 24px;border-radius:12px;background:#0EA5E9;color:#fff;text-decoration:none;\">去登录</a>"
+                "<a href=\"/register\" style=\"display:inline-block;padding:10px 24px;border-radius:12px;background:#fff;color:#0369A1;border:1px solid #E0F2FE;text-decoration:none;\">去注册</a>"
                 "</div></div>"
                 "<script>try{var t=localStorage.getItem('oj_token');if(t&&!sessionStorage.getItem('oj_msg_retry')){"
                 "sessionStorage.setItem('oj_msg_retry','1');"

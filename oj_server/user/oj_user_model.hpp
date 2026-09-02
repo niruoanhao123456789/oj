@@ -354,6 +354,39 @@ namespace oj_user_model
             return true;
         }
 
+        // 删除小组: 先删除成员关系, 再删除组内题目(scope=小组id), 最后删除小组本身
+        bool DeleteGroup(int group_id)
+        {
+            MYSQL* my = Connect();
+            if(my == nullptr)
+                return false;
+
+            std::string del_members = "delete from " + member_table + " where group_id=" + std::to_string(group_id);
+            if(mysql_query(my,del_members.c_str()))
+            {
+                LOG_WARNNING(GetLogger("oj_Logger"),"%s%d","delete group members failed! group_id: ",group_id);
+                mysql_close(my);
+                return false;
+            }
+            std::string del_questions = "delete from questions where scope='" + std::to_string(group_id) + "'";
+            if(mysql_query(my,del_questions.c_str()))
+            {
+                LOG_WARNNING(GetLogger("oj_Logger"),"%s%d","delete group questions failed! group_id: ",group_id);
+                mysql_close(my);
+                return false;
+            }
+            std::string del_group = "delete from " + group_table + " where id=" + std::to_string(group_id);
+            if(mysql_query(my,del_group.c_str()))
+            {
+                LOG_WARNNING(GetLogger("oj_Logger"),"%s%d","delete group failed! group_id: ",group_id);
+                mysql_close(my);
+                return false;
+            }
+            LOG_INFOR(GetLogger("oj_Logger"),"%s%d","delete group succeed! group_id: ",group_id);
+            mysql_close(my);
+            return true;
+        }
+
         // 加入小组
         bool JoinGroup(int user_id,int group_id)
         {

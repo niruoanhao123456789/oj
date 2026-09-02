@@ -84,6 +84,41 @@
         }
         .nav-links a:hover { background: var(--sky-50); color: var(--sky-600); }
         .nav-links a:focus-visible { outline: 2px solid var(--sky-400); outline-offset: 2px; }
+        .nav-links a.pill {
+            background: var(--sky-50);
+            border: 1px solid var(--line);
+            color: var(--sky-700);
+            font-size: 14px;
+            padding: 8px 18px;
+        }
+        .nav-links a.pill:hover { background: var(--sky-100); color: var(--sky-600); }
+        .nav-links a.pill.reg {
+            background: linear-gradient(135deg, var(--cta), #fb923c);
+            border-color: transparent;
+            color: #fff;
+            box-shadow: 0 6px 16px -8px rgba(249, 115, 22, 0.6);
+        }
+        .nav-links a.pill.reg:hover { background: linear-gradient(135deg, var(--cta-hover), var(--cta)); }
+        .nav-user {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 16px;
+            border-radius: 999px;
+            background: var(--sky-50);
+            color: var(--sky-700);
+            border: 1px solid var(--line);
+            font-size: 14px;
+            font-weight: 600;
+            margin-left: 6px;
+            max-width: 220px;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+        .nav-user em { font-style: normal; font-weight: 400; font-size: 12px; color: var(--muted); }
+        .nav-links a.out { color: var(--muted); font-size: 14px; }
+        .nav-links a.out:hover { background: #fef2f2; color: #dc2626; }
         .btn {
             display: inline-flex; align-items: center; justify-content: center; gap: 8px;
             border: none; border-radius: 999px;
@@ -410,7 +445,8 @@
         }
         @media (max-width: 768px) {
             section { padding: 64px 20px; }
-            .nav-links a { display: none; }
+            .navbar { top: 10px; left: 10px; right: 10px; padding: 12px 18px; border-radius: 22px; flex-wrap: wrap; gap: 8px; }
+            .nav-links { flex-wrap: wrap; justify-content: center; }
             .features { grid-template-columns: 1fr; }
             .steps { grid-template-columns: 1fr; }
             .step .arrow { display: none; }
@@ -435,12 +471,7 @@
             </span>
             在线OJ
         </a>
-        <nav class="nav-links">
-            <a href="#features">平台能力</a>
-            <a href="#workflow">评测流程</a>
-            <a href="/all_questions">题目广场</a>
-            <a class="btn btn-cta" href="/all_questions">开始刷题</a>
-        </nav>
+        <nav class="nav-links" id="navLinks"></nav>
     </header>
 
     <!-- ===== Hero ===== -->
@@ -457,7 +488,7 @@
         <p class="hero-sub">精选算法题库，多语言实时评测，负载均衡调度海量判题请求。在线提交代码，即刻获取评测结果，与同好共赴编程之海。</p>
 
         <div class="hero-actions">
-            <a class="btn btn-sky" href="/all_questions">
+            <a class="btn btn-sky js-enter" href="/all_questions">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                 开始刷题
             </a>
@@ -588,7 +619,7 @@
         <div class="cta-banner reveal">
             <h2>以代码为舟，共赴<span class="serif">星辰大海</span></h2>
             <p class="motto serif">纸上得来终觉浅，绝知此事要躬行</p>
-            <a class="btn btn-cta" href="/all_questions">
+            <a class="btn btn-cta js-enter" href="/all_questions">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
                 立即开始刷题
             </a>
@@ -607,7 +638,7 @@
             <nav>
                 <a href="#features">平台能力</a>
                 <a href="#workflow">评测流程</a>
-                <a href="/all_questions">题目广场</a>
+                <a class="js-enter" href="/all_questions">题目广场</a>
             </nav>
             <span class="copy">在线OJ © 2026 · 判题平台</span>
         </div>
@@ -624,6 +655,75 @@
                 });
             }, { threshold: 0.12 });
             document.querySelectorAll('.reveal').forEach(function (el) { observer.observe(el); });
+        })();
+    </script>
+
+    <script>
+        // ---- 首页登录态与导航 ----
+        (function () {
+            var TOKEN = (function(){ try { return localStorage.getItem('oj_token') || ''; } catch(e){ return ''; } })();
+            var USER = (function(){ try { return localStorage.getItem('oj_username') || ''; } catch(e){ return ''; } })();
+            var ROLE = (function(){ try { return localStorage.getItem('oj_role') || ''; } catch(e){ return ''; } })();
+            var roleMap = { admin: '管理员', leader: '负责人', user: '普通用户' };
+
+            function navFetch(url) {
+                var headers = TOKEN ? { 'Authorization': 'Bearer ' + TOKEN } : {};
+                fetch(url, { headers: headers })
+                    .then(function (r) { return r.text(); })
+                    .then(function (html) {
+                        if (html.indexOf('id="oj-msg-page"') !== -1) { location.href = url; return; }
+                        document.open(); document.write(html); document.close();
+                    })
+                    .catch(function () { location.href = url; });
+            }
+
+            function renderNav() {
+                var box = document.getElementById('navLinks');
+                if (!box) return;
+                if (TOKEN && USER) {
+                    var links = '<a href="/all_questions" data-fetch="1">题目列表</a>'
+                        + '<a href="/group_manage" data-fetch="1">小组</a>';
+                    if (ROLE === 'admin' || ROLE === 'leader') links += '<a href="/question_manage" data-fetch="1">题目管理</a>';
+                    box.innerHTML = links
+                        + '<span class="nav-user" title="' + USER + '">' + USER + '<em>' + (roleMap[ROLE] || ROLE) + '</em></span>'
+                        + '<a href="#" class="out" id="navLogout">退出</a>';
+                    var lo = document.getElementById('navLogout');
+                    if (lo) lo.addEventListener('click', function (ev) {
+                        ev.preventDefault();
+                        try {
+                            localStorage.removeItem('oj_token');
+                            localStorage.removeItem('oj_username');
+                            localStorage.removeItem('oj_role');
+                            sessionStorage.removeItem('oj_auth_fetched');
+                        } catch (err) { }
+                        location.href = '/login';
+                    });
+                } else {
+                    box.innerHTML = '<a class="pill" href="/login">登录</a><a class="pill reg" href="/register">注册</a>';
+                }
+            }
+            renderNav();
+
+            // 带登录态的页面内跳转(仅内部页面链接带 data-fetch)
+            document.addEventListener('click', function (e) {
+                var a = e.target.closest ? e.target.closest('a[data-fetch]') : null;
+                if (!a) return;
+                e.preventDefault();
+                navFetch(a.href);
+            });
+
+            // “开始刷题 / 立即开始刷题 / 题目广场”: 已登录进题目列表, 未登录跳转登录/注册
+            var enters = document.querySelectorAll('.js-enter');
+            for (var i = 0; i < enters.length; i++) {
+                enters[i].addEventListener('click', function (ev) {
+                    ev.preventDefault();
+                    if (TOKEN && USER) {
+                        navFetch('/all_questions');
+                    } else {
+                        location.href = '/login';
+                    }
+                });
+            }
         })();
     </script>
 </body>
