@@ -19,6 +19,31 @@ BEGIN
             ADD COLUMN scope VARCHAR(16) NOT NULL DEFAULT 'global' COMMENT '可见范围: global 或小组id' AFTER mem_limit;
     END IF;
 
+    -- 1.1) 出题模式 + 两套用例列(统一输入/期望输出判题模型)
+    IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA='oj' AND TABLE_NAME='questions' AND COLUMN_NAME='mode') THEN
+        ALTER TABLE questions
+            ADD COLUMN mode VARCHAR(16) NOT NULL DEFAULT 'acm'
+            COMMENT '出题模式: function 函数接口 / acm 传统ACM IO' AFTER scope;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA='oj' AND TABLE_NAME='questions' AND COLUMN_NAME='visible_cases') THEN
+        ALTER TABLE questions
+            ADD COLUMN visible_cases TEXT COMMENT '显式样例 JSON 数组, 答题页展示, 不判题' AFTER mode;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA='oj' AND TABLE_NAME='questions' AND COLUMN_NAME='hidden_cases') THEN
+        ALTER TABLE questions
+            ADD COLUMN hidden_cases TEXT COMMENT '隐藏判题用例 JSON 数组({input,expected}), 判题唯一依据' AFTER visible_cases;
+    END IF;
+
+    -- 1.2) 兼容旧数据: 依据 main 所在位置推断 mode(function: main 在 tail / acm: main 在 answer)
+    IF EXISTS (SELECT 1 FROM information_schema.COLUMNS
+               WHERE TABLE_SCHEMA='oj' AND TABLE_NAME='questions' AND COLUMN_NAME='mode') THEN
+        UPDATE questions SET mode = 'function'
+         WHERE mode = 'acm' AND answer NOT LIKE '%int main(%' AND tail LIKE '%int main(%';
+    END IF;
+
     -- 2) rename legacy column names to the canonical ones read by the gateway
     IF EXISTS (SELECT 1 FROM information_schema.COLUMNS
                WHERE TABLE_SCHEMA='oj' AND TABLE_NAME='questions' AND COLUMN_NAME='star') THEN

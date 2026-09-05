@@ -113,7 +113,7 @@
   - `login.html` —— 登录页（对应 `View::LoginExpandHtml`）；
   - `group_manage.html` —— 小组管理页：负责人/管理员创建并管理**多个**小组、查看/重置小组邀请码，普通用户凭邀请码加入小组（对应 `View::GroupManageExpandHtml`）；
   - `question_manage.html` —— 题目管理列表页（`View::QuestionManageExpandHtml` 渲染；管理员见全部题，负责人仅见本组题）；
-  - `question_edit.html` —— 新增/编辑共用表单页（`View::QuestionEditExpandHtml` 渲染；表单由 JS 打包 JSON 提交）。
+  - `question_edit.html` —— 新增/编辑共用表单页（`View::QuestionEditExpandHtml` 渲染；表单由 JS 打包 JSON 提交）。负责人/管理员可**自主选择出题模式**（`ACM（传统 IO）`：answer 为含 main 的完整程序；`函数接口`：answer 只写函数、隐藏 main 驱动放 tail），并以**填空式列表**增删「显式样例（展示给学生）」与「隐藏测试案例（必填 ≥1，判题依据）」，header/answer/tail 均可在页面直接编辑。
 
 ### 3.2 `compile_server`（判题节点）
 
@@ -147,12 +147,15 @@
 | `_cpu_limit` | `size_t` | CPU 时间限制，秒 |
 | `_mem_limit` | `size_t` | 内存限制，MB |
 | `_desc` | `string` | 题目描述 |
-| `_header` | `string` | 隐藏的前置代码，拼接在 **用户代码之前** |
-| `_answer` | `string` | 在线编辑器中预填的初始代码 |
-| `_tail` | `string` | **隐藏（不可见）测试用例**：判题**唯一**依据，拼接在 **用户代码之后**，答题页不展示 |
+| `_header` | `string` | **隐藏头文件/辅助代码**（学生不可见），拼接在 **用户代码之前**；函数接口模式使用，ACM 模式可留空 |
+| `_answer` | `string` | 在线编辑器预填、学生提交的代码：`function` 模式只放待实现函数/类；`acm` 模式放含 `main()` 的完整程序 |
+| `_tail` | `string` | 隐藏附加代码（学生不可见），拼接在 **用户代码之后**；`function` 模式放读 stdin → 调 answer 函数 → 按要求输出的隐藏 `main()` 驱动，`acm` 模式留空 |
 | `_scope` | `string` | 可见范围：`"global"` 表示全局题（全体可见），否则为小组 id（组内题，仅该组成员可见） |
+| `_mode` | `string` | 出题模式：`'function'` 函数接口 / `'acm'` 传统 ACM IO（负责人/管理员在编辑页选择） |
+| `_visible_cases` | `string` | 显式样例：`JSON` 数组字符串（元素含 `name/input/expected/explain`），答题页展示给用户，**不参与判题** |
+| `_hidden_cases` | `string` | 隐藏判题用例：`JSON` 数组字符串（元素为 `{input, expected}`），判题**唯一**依据，答题页不展示 |
 
-> 隐藏测试用例即 `_tail`（两模型一致）：`GET /question/{id}` 答题页不返回/展示该字段；评测时拼接 `header + 用户代码 + tail`，只依据隐藏测试用例判题。`tail` 需遵循 **PASSRATE 协议**上报通过情况（见 §5.3、§6）。
+> 判题模型为**统一的“输入/期望输出”数据比对**（见 §5.3、§6）：拼接后的代码（`header + 用户代码 + tail`）应是可独立编译运行的程序（读 `stdin`、写 `stdout`）。每个隐藏用例以其 `input` 作为标准输入运行一次程序，将 `stdout` 与 `expected` 规范化比对（忽略行尾空白与文末空行）后累计通过数与总数；`_hidden_cases` 至少一个。`GET /question/{id}` 答题页只展示 `_answer`（编辑器预填）与 `_visible_cases`（示例卡），不返回/展示 `_header`、`_tail`、`_hidden_cases`。兼容旧题（无 `_hidden_cases`）：回退到单次运行 + **PASSRATE 协议**解析。
 
 ### 4.2 MySQL 表结构（`oj.questions`）
 
@@ -170,10 +173,13 @@
 | 7 | `cpu_limit INT`（默认 1） | `_cpu_limit` |
 | 8 | `mem_limit INT`（默认 30） | `_mem_limit` |
 | 9 | `scope VARCHAR(16) DEFAULT 'global'` | `_scope` —— `global` 或小组 id |
+| 10 | `mode VARCHAR(16) DEFAULT 'acm'` | `_mode` —— `function` 函数接口 / `acm` 传统 ACM IO |
+| 11 | `visible_cases TEXT` | `_visible_cases` —— 显式样例 JSON（答题页展示，不判题） |
+| 12 | `hidden_cases TEXT` | `_hidden_cases` —— 隐藏判题用例 JSON（判题依据，答题页不展示） |
 
 连接参数（硬编码于 `oj_mysqlmodel.hpp`）：主机 `127.0.0.1`，端口 `3306`，数据库 `oj`，用户 `oj_client`，密码 `1234`。
 
-> `tail` 列即隐藏测试用例（判题唯一依据，对答题用户不可见）；题目新增/修改必须填写 `tail`。
+> `hidden_cases` 列即隐藏判题用例（判题唯一依据，对答题用户不可见）；题目新增/修改必须填写至少一个（元素为 `{input, expected}`）。`visible_cases` 为显式样例，答题页展示。`mode` 由负责人/管理员在编辑页选择。
 
 ### 4.3 基于文件的模型（备选）
 
@@ -181,7 +187,7 @@
 - 每题一个目录 `questions/{id}/`，内含 `desc.txt`、`header.cpp`、`answer.cpp`、`tail.cpp`。
 - 非当前启用模型；通过切换 `oj_control.hpp` 和 `oj_view.hpp` 中的 `using namespace` 行来启用。
 - 题目管理（新增/修改/删除）写入该文件模型：`AddQuestion`（分配 `max(id)+1`、`mkdir`、写四文件、追加列表行）、`UpdateQuestion`（覆盖四文件并重建列表）、`DeleteQuestion`（删除文件与目录并重建列表）。
-- 与 MySQL 模型一致，`tail.cpp` 即隐藏测试用例（判题唯一依据，答题页不展示），需遵循 PASSRATE 协议（见 §5.3、§6）。
+- 与 MySQL 模型一致，`header.cpp`/`answer.cpp`/`tail.cpp` 语义相同；`mode`/`visible_cases`/`hidden_cases` 目前仅 MySQL 模型启用（文件模型题目无隐藏用例时判题回退到单次运行 + PASSRATE 协议，见 §5.3、§6）。
 
 ### 4.4 用户、角色与小组
 
@@ -267,7 +273,7 @@
 ### 5.2 `GET /question/{id}`（网关）
 
 - 路径参数 `id`：数字型题目编号（`(\d+)`）。
-- 响应：`200`，`text/html; charset=utf-8` —— 题目描述、难度以及预填代码的编辑器（**不包含隐藏测试用例 `tail`**，答题用户不可见）。
+- 响应：`200`，`text/html; charset=utf-8` —— 题目描述、难度、显式样例 `visible_cases`（示例卡）以及预填代码的编辑器。编辑器只预填 `answer`（不包含 `header`、`tail` 与 `hidden_cases`，答题用户均不可见）。
 - **访问要求：需登录**（未登录返回登录引导页）。可见性校验：已登录用户不可见的题目（非全局、非所在组、且非管理员/负责人本组）返回不可访问提示。
 
 ### 5.3 `POST /judge/{id}`（网关）
@@ -277,7 +283,7 @@
 | 字段 | 类型 | 必填 | 描述 |
 | --- | --- | --- | --- |
 | `code` | string | 是 | 用户 C++ 源码 |
-| `input` | string | 否 | 可选的标准输入（默认为空） |
+| `input` | string | 否 | 可选的标准输入（仅在题目无隐藏用例的旧式单次运行路径使用） |
 
 **响应体：**
 
@@ -285,15 +291,15 @@
 | --- | --- | --- |
 | `status` | integer | 评测状态码（见 [第 9 节](#9-结果状态码)） |
 | `reason` | string | 人类可读的结果描述（中文） |
-| `stdout` | string | 仅当 `status == 0` 时返回（不含 PASSRATE 行） |
+| `stdout` | string | 仅当 `status == 0` 且为旧式单次运行路径时返回 |
 | `stderr` | string | 仅当 `status == 0` 时返回 |
-| `pass_count` | integer | 仅当 `status == 0` 且驱动按 PASSRATE 协议上报时返回：通过的隐藏案例数 |
-| `total_count` | integer | 仅当 `status == 0` 且驱动按 PASSRATE 协议上报时返回：隐藏案例总数 |
+| `pass_count` | integer | 仅当 `status == 0` 时返回：通过的隐藏用例数 |
+| `total_count` | integer | 仅当 `status == 0` 时返回：隐藏用例总数 |
 
 - 访问要求：仅登录用户可提交评测（未登录返回提示先登录）。
 - 可见性校验：仅允许登录用户对当前可见的题目提交评测。
-- 判题依据：只依据**隐藏测试用例（`tail`，对答题用户不可见）**，拼接 `header + 用户代码 + tail` 判题（见 [§6](#6-评测流程)）。
-- 结果呈现（仿 LeetCode）：`status != 0` 时展示现有错误返回；`status == 0` 且有 `pass_count/total_count` 时，前端只展示「测试用例通过: X/Y（百分比）」，**不展示具体通过的案例明细**（详见 [§6](#6-评测流程)）。
+- 判题依据：依据题目的**隐藏判题用例 `hidden_cases`（`{input, expected}`，对答题用户不可见）**，拼接 `header + 用户代码 + tail` 后编译一次，再逐用例运行比对 stdout（见 [§6](#6-评测流程)）。旧题（无 `hidden_cases`）回退到单次运行 + PASSRATE 解析。
+- 结果呈现（仿 LeetCode）：`status != 0` 时展示现有错误返回；`status == 0` 时前端只展示「测试用例通过: X/Y（百分比）」，**不展示具体通过的案例明细**（详见 [§6](#6-评测流程)）。
 
 ### 5.4 `POST /compile_and_run`（编译服务器，内部接口）
 
@@ -301,8 +307,9 @@
 
 | 字段 | 类型 | 必填 | 描述 |
 | --- | --- | --- | --- |
-| `code` | string | 是 | **完整源码**：`header + "\n" + 用户代码 + "\n" + tail`（`tail` 为隐藏测试用例） |
-| `input` | string | 否 | 程序标准输入 |
+| `code` | string | 是 | **完整源码**：`header + "\n" + 用户代码 + "\n" + tail`（`header`/`tail` 可为空） |
+| `input` | string | 否 | 程序标准输入（仅无 `cases` 时使用） |
+| `cases` | array | 否 | **批量判题**：`[{input, expected}...]`，提供时编译一次、逐案例写入 stdin 运行并比对 stdout |
 | `cpu_limit` | integer | 是 | 秒 |
 | `mem_limit` | integer | 是 | MB |
 
@@ -361,17 +368,19 @@
 
 ### 5.13 `POST /api/questions`（网关）
 
-- 请求体（字段：`title rank desc header answer tail cpu_limit mem_limit scope`）；需管理员或负责人身份。
-  - `tail`（隐藏测试用例）**必填**：新增与修改均须设置，且遵循 PASSRATE 协议（见 [§6](#6-评测流程)）。
+- 请求体（字段：`title rank desc header answer tail cpu_limit mem_limit scope mode visible_cases hidden_cases`）；需管理员或负责人身份。
+  - `mode`：`'function'`（函数接口）或 `'acm'`（传统 ACM IO），负责人/管理员自选。
+  - `hidden_cases`（隐藏判题用例 `[{input, expected}...]`）**必填**：新增与修改均须包含至少一个；`visible_cases` 为显式样例（可选，答题页展示，不判题）。
+  - `function` 模式下 `tail` 需提供隐藏 `main()` 驱动（读 stdin → 调 answer 函数 → 按要求输出）；`acm` 模式下 `tail` 一般留空、`answer` 自带 main。
 - 权限：管理员可发布全局题（`scope=global`）；负责人仅可发布本组题（`scope=小组id`）。
 - 行为：按当前启用的模型存储 ——
-  - MySQL 模型：`INSERT INTO questions(...)`（含 `scope`、`tail` 列）；
-  - 文件模型：分配 `max(id)+1`，创建 `questions/{id}/`，写入 `desc.txt`、`header.cpp`、`answer.cpp`、`tail.cpp`，并在 `questions.list` 追加一行（6 列）。
+  - MySQL 模型：`INSERT INTO questions(...)`（含 `scope`、`mode`、`visible_cases`、`hidden_cases` 列）；
+  - 文件模型：分配 `max(id)+1`，创建 `questions/{id}/`，写入 `desc.txt`、`header.cpp`、`answer.cpp`、`tail.cpp`，并在 `questions.list` 追加一行（6 列）。注：`mode`/`visible_cases`/`hidden_cases` 目前仅 MySQL 模型启用。
 - 响应：`200` + JSON `{ok, id}`。
 
 ### 5.14 `PUT /api/questions/{id}`（网关）
 
-- 路径参数 `id`：题目 id；请求体同 5.13；权限同上（负责人仅能修改本组题目）。
+- 路径参数 `id`：题目 id；请求体同 §5.13；权限同上（负责人仅能修改本组题目）。
 - 行为：MySQL 模型 `UPDATE ... WHERE id=?`；文件模型覆盖 `questions/{id}/` 四文件并重建 `questions.list`。
 - 响应：`200` + JSON `{ok, message}`。
 
@@ -399,13 +408,14 @@
 
 1. **加载题目** —— 网关按编号从 MySQL 查询题目。
 2. **登录与可见性校验** —— 未登录直接提示先登录；已登录则校验当前用户是否可访问该题（全局题 / 所在组题目 / 管理员或本组负责人），不可见则直接返回权限错误。
-3. **反序列化** 请求 `{code, input}`（使用 jsoncpp）。
-4. **拼接完整源码** —— `code = header + "\n" + 用户代码 + "\n" + tail`（`tail` 为**隐藏测试用例**，判题唯一依据；两模型一致）。将 `{code, input, cpu_limit, mem_limit}` 打包为 JSON。
+3. **反序列化** 请求 `{code}`（使用 jsoncpp）。
+4. **拼接完整源码** —— `code = header + "\n" + 用户代码 + "\n" + tail`（`header`/`tail` 为可选代码）。将 `{code, cpu_limit, mem_limit}` 打包为 JSON；解析题目的 `hidden_cases`，若非空则附 `cases: [{input, expected}...]`（判题依据，见 §4.1）。
 5. **选择一个节点** —— `LoadBlance::SmartChoice` 选择当前负载（`_load`）**最小**的在线机器。若无在线机器，循环退出，网关返回空响应体。
 6. **转发** —— 网关向 `/{ip}:{port}/compile_and_run` 发起 `POST`；发送前对节点的 `_load` 加一，收到任何 HTTP 响应后减一。
-7. **判题** —— 节点将源码写入唯一命名的临时文件，编译，在资源限制下运行，返回 JSON。
-   - **PASSRATE 协议**：隐藏测试驱动（`tail`）以 `RUN_TEST(name, cond)` 累计通过数与总数，`main` 末尾只输出一行 `PASSRATE <passed>/<total>`，**不逐条打印**；编译服务器在 `status == 0` 时从 stdout 解析该行，加入 `pass_count`/`total_count`，并从用户可见 stdout 中剔除该行。
-8. **返回** —— 网关将节点的响应体原样透传给浏览器；前端按 LeetCode 风格呈现：错误按原样返回，运行成功时只显示「测试用例通过: X/Y（百分比）」，不展示已通过的案例明细。
+7. **判题** —— 节点将源码写入唯一命名的临时文件，**编译一次**，随后返回 JSON。
+   - **批量用例比对（默认路径）**：请求携带 `cases` 时，对每个用例：将 `input` 写入临时 `.stdin`、清空上次 `.stdout/.stderr` 后运行一次程序；正常退出的用例把 `stdout` 与 `expected` **规范化比对**（逐行去行尾空白、忽略文末空行），累计 `pass_count/total_count`。任一用例运行异常（信号/超时/内存超限）则以该信号作为整体 `status` 返回。
+   - **旧式单次运行（兼容）**：无 `cases` 时按单次运行处理，若 stdout 中出现 `PASSRATE <passed>/<total>` 行则解析为 `pass_count/total_count` 并从用户可见 stdout 中剔除。
+8. **返回** —— 网关将节点的响应体原样透传给浏览器；前端按 LeetCode 风格呈现：错误（编译失败/超时/超内存等）按原样返回，运行成功时只显示「测试用例通过: X/Y（百分比）」，不展示具体案例明细。
 
 选择循环内的失败处理：
 
@@ -475,7 +485,7 @@
 
 > 运行期状态码取子进程的终止信号（`status & 0x7F`）。仅当 `status == 0` 时才填充 `stdout`/`stderr`。
 >
-> `status == 0` 仅表示编译并运行成功；通过情况由 `pass_count`/`total_count` 表达（PASSRATE 协议，见 [§6](#6-评测流程)）：全部通过（`pass_count == total_count`）前端显示「通过（Accepted）」，部分通过显示「部分通过（Wrong Answer）」及百分比，不展示已通过的案例明细。
+> `status == 0` 仅表示编译并运行成功；通过情况由 `pass_count`/`total_count` 表达（批量用例比对或旧式 PASSRATE，见 [§6](#6-评测流程)）：全部通过（`pass_count == total_count`）前端显示「通过（Accepted）」，部分通过显示「部分通过（Wrong Answer）」及百分比，不展示已通过的案例明细。
 
 ---
 
@@ -515,7 +525,7 @@
 | `test_passwd.cpp` | `Sha256Test` / `HashPasswordTest` | 5 | SHA-256 官方/NIST 测试向量、64 位十六进制输出、同盐哈希确定性、盐或密码变化改变哈希 |
 | `test_question.cpp` | `MysqlQuestionRankTest` / `FileQuestionRankTest` / `QuestionTest` | 5 | 两模型共用 `Question::Rank` 的字符串 ↔ 枚举转换、`_scope` 默认 `global` |
 | `test_filemodel.cpp` | `FileModelTest` | 6 | `questions.list` 6/5 列解析（缺省 `scope`）、`AddQuestion` 分配 `max(id)+1`、`UpdateQuestion` 覆盖四文件并重建列表、`DeleteQuestion`、列表数字升序重写、删除不存在的题返回失败 |
-| `test_mysqlmodel.cpp` | `MysqlModelTest` | 2 | `Add/Update/Delete` 往返（id 回填、字段与 `scope` 持久化）、转义防注入 |
+| `test_mysqlmodel.cpp` | `MysqlModelTest` | 2 | `Add/Update/Delete` 往返（id 回填、字段/`scope`/`mode`/`visible_cases`/`hidden_cases` 持久化）、转义防注入 |
 | `test_session.cpp` | `SessionTest` | 4 | token 会话创建/获取、token 唯一性、未知 token 返回失败、盐为数字时间戳 |
 | `test_group.cpp` | `GroupModelTest` | 6 | 创建后删除生效、删除级联清除成员关系与组内题目、同一负责人创建多组且邀请码唯一、凭邀请码加入与重复加入失败、重置小组邀请码后旧码失效、组间可见性数据隔离（MySQL 不可用时跳过） |
 | `test_api_auth.cpp` | `ApiAuthTest` | 6 | 依据 API（§5.5/§5.6/§5.11/§5.12）：重复用户名注册被拒、注册角色持久化 + 登录签发会话、未知用户名登录失败、管理员邀请码重置生命周期（新码生效/旧码失效）、负责人注册需有效邀请码、角色修改往返（MySQL 不可用时跳过） |
@@ -589,13 +599,24 @@
 - [x] `oj_filemodel.hpp`：`LoadQuestionsList` 解析 6 列；新增 `AddQuestion`、`UpdateQuestion`、`DeleteQuestion` 与辅助 `WriteQuestionsList`（按数字 id 升序重写）。
 - [x] 文件模型 CRUD 需对 `_questions` 加互斥锁，保证并发读写安全。
 
-### 隐藏测试用例与 LeetCode 风格结果（两模型一致）
+### 统一输入输出判题 + 案例化录入 + 出题模式（取代下述 PASSRATE/tail 旧方案）
 
-- [x] 隐藏测试用例即 `_tail`（判题唯一依据，拼接在用户代码之后），`GET /question/{id}` 答题页不展示。
-- [x] `Control::Judge`：只依据隐藏测试用例 `_tail` 拼接源码判题（`header + 用户代码 + tail`）。
-- [x] 题目新增/修改必须设置 `tail`（`ParseQuestionJson` 校验 + 前端 `required`）。
+> 以下为**当前生效**的判题模型；下一小节「PASSRATE/tail 旧方案」保留作历史记录。
+
+- [x] `Question`（两模型字段对齐）与 MySQL `questions` 表新增 `mode`（`function`/`acm`）、`visible_cases`（显式样例 JSON）、`hidden_cases`（隐藏判题用例 JSON `[{input, expected}]`）；`upgrade.sql` 含增量建列（含按 main 所在位置推断旧行 mode 的迁移）。
+- [x] `oj_mysqlmodel.hpp`：`QueryMysql` 读取 row[10..12] → `_mode/_visible_cases/_hidden_cases`；`AddQuestion`/`UpdateQuestion` 写入新列。
+- [x] 统一判题（`oj_control.hpp` `Control::Judge` + `compile_run.hpp`）：拼接 `header + 用户代码 + tail` 编译一次，把 `_hidden_cases` 作为 `cases` 下发，判题端逐用例写入 stdin 运行并**规范化比对 stdout**（逐行去行尾空白、忽略文末空行）累计 `pass_count/total_count`；运行异常以信号作为整体状态返回。无 `cases` 的旧题回退单次运行 + PASSRATE 解析。
+- [x] 出题模式由负责人/管理员自选（编辑页单选 + 提示）：`ACM（传统 IO）`—— answer 为含 `main()` 的完整程序、tail 留空；`函数接口`—— header 放头文件、answer 只放待实现函数/类、tail 放读 stdin → 调用 answer 函数 → 按要求输出的隐藏 `main()` 驱动。
+- [x] 编辑页（`question_edit.html`）：以**填空式列表**增删「显式样例（标题/输入/期望输出/解释）」与「隐藏测试案例（输入/期望输出，必填 ≥1）」，支持排序/编号；header/answer/tail/desc/scope/limits 直接编辑；保存时打包 `mode + visible_cases + hidden_cases` JSON。
+- [x] 答题页（`one_question.html` + `View::OneExpandHtml`）：展示 `_visible_cases` 为示例卡（输入/期望输出/解释），编辑器只预填 `_answer`，绝不展示 `_header`/`_tail`/`_hidden_cases`。
+- [x] 演示数据（MySQL `oj.questions` 1..5、`tests/example/mysql_test.cpp` 种子）统一为函数接口模式：header 放头文件、answer 只放待实现函数、tail 放读 stdin 的 main 驱动、配好显式样例与隐藏用例、`mode='function'`。
+
+### PASSRATE/tail 旧方案（历史，已被上方统一输入输出判题取代）
+
+- [x] 隐藏测试用例即 `_tail`（拼接在用户代码之后），`GET /question/{id}` 答题页不展示。
 - [x] **PASSRATE 协议**：隐藏测试驱动以 `RUN_TEST(name, cond)` 累计通过数与总数，`main` 末尾只输出一行 `PASSRATE <passed>/<total>`，不逐条打印。
 - [x] `compile_run.hpp`：`status == 0` 时解析 PASSRATE → 响应新增 `pass_count`/`total_count`，并从用户可见 stdout 中剔除该行。
+- [x] 题目新增/修改必须设置 `tail`（旧 `ParseQuestionJson` 校验）。
 - [x] 答题页（`one_question.html`）：LeetCode 风格呈现 —— 错误按原样返回；运行成功时只显示「测试用例通过: X/Y（百分比）」，不展示已通过的案例明细。
 
 ### 用户、角色与小组

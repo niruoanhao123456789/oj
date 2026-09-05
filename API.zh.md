@@ -105,7 +105,7 @@ curl http://localhost:8080/question/1
 
 ## POST /judge/{id}
 
-提交用户代码并返回评测结果（JSON）。网关会先拼接完整程序（`header + code + tail`，`tail` 为**隐藏测试用例**，答题页不对用户展示），选择负载最低的编译服务器，并转发评测任务。
+提交用户代码并返回评测结果（JSON）。网关加载题目后拼接完整程序（`header + code + tail`，`header`/`tail` 对学生不可见），并把题目的隐藏判题用例 `hidden_cases`（`[{input, expected}]`）连同任务一起转发给负载最低的编译服务器：编译一次后逐用例写入 stdin 运行，将 stdout 与 `expected` 比对。
 
 **路径：** `POST /judge/{id}`
 
@@ -122,14 +122,14 @@ curl http://localhost:8080/question/1
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | `code` | 字符串 | 是 | 用户提交的 C++ 源码。 |
-| `input` | 字符串 | 否 | 传给程序的标准输入（缺省为空）。 |
+| `input` | 字符串 | 否 | 传给程序的标准输入（仅题目无隐藏用例时的旧式单次运行回退使用）。 |
 
 **请求示例**
 
 ```bash
 curl -X POST http://localhost:8080/judge/1 \
   -H "Content-Type: application/json; charset=utf-8" \
-  -d '{"code":"#include <iostream>\nint main(){std::cout<<\"ok\";return 0;}","input":""}'
+  -d '{"code":"#include <iostream>\nint main(){std::cout<<\"ok\";return 0;}"}'
 ```
 
 **响应**
@@ -143,10 +143,10 @@ curl -X POST http://localhost:8080/judge/1 \
 | --- | --- | --- |
 | `status` | 整数 | 评测状态码（见[状态码](#评测状态码)）。 |
 | `reason` | 字符串 | 人类可读的结果描述（中文）。 |
-| `stdout` | 字符串 | 程序标准输出。仅在 `status == 0` 时返回（已剔除 PASSRATE 行）。 |
+| `stdout` | 字符串 | 程序标准输出（批量判题路径返回空串）。 |
 | `stderr` | 字符串 | 程序标准错误。仅在 `status == 0` 时返回。 |
-| `pass_count` | 整数 | 通过的隐藏案例数。仅当 `status == 0` 且驱动按 PASSRATE 协议上报时返回。 |
-| `total_count` | 整数 | 隐藏案例总数。仅当 `status == 0` 且驱动按 PASSRATE 协议上报时返回。 |
+| `pass_count` | 整数 | 通过的隐藏用例数。`status == 0` 时返回。 |
+| `total_count` | 整数 | 隐藏用例总数。`status == 0` 时返回。 |
 
 > **访问与可见性约束：** 仅登录用户可提交评测（未登录返回提示先登录）；登录后仅允许对当前用户可见的题目提交评测。
 >
@@ -188,17 +188,18 @@ curl -X POST http://localhost:8080/judge/1 \
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| `code` | 字符串 | 是 | **完整的**源码（`header + 用户代码 + tail`，`tail` 为隐藏测试用例）。 |
-| `input` | 字符串 | 否 | 程序标准输入（缺省为空）。 |
+| `code` | 字符串 | 是 | **完整的**源码（`header + 用户代码 + tail`，`header`/`tail` 可为空）。 |
+| `input` | 字符串 | 否 | 程序标准输入（仅无 `cases` 时使用）。 |
+| `cases` | 数组 | 否 | **批量判题**：`[{input, expected}...]`。提供时编译一次、逐用例写入 stdin 运行，并将规范化后的 stdout（忽略行尾空白与文末空行）与 `expected` 比对。 |
 | `cpu_limit` | 整数 | 是 | CPU 时间限制（秒）。 |
 | `mem_limit` | 整数 | 是 | 内存限制（MB）。 |
 
-**请求示例**
+**请求示例（批量判题）**
 
 ```json
 {
-  "code": "#include <iostream>\nint main(){ int n; std::cin >> n; std::cout << n * 2; }",
-  "input": "21",
+  "code": "#include <iostream>\nint main(){ int a,b; std::cin >> a >> b; std::cout << a + b; }",
+  "cases": [{"input": "1 2", "expected": "3"}, {"input": "10 20", "expected": "30"}],
   "cpu_limit": 1,
   "mem_limit": 30
 }
@@ -209,9 +210,7 @@ curl -X POST http://localhost:8080/judge/1 \
 - `200 OK`（即使被评测程序运行出错也返回 200，结果由 `status` 字段描述）
 - `Content-Type: application/json; charset=utf-8`
 
-**响应体** —— 与 [`/judge/{id}`](#post-judgeid) 相同（含 `pass_count`/`total_count`）。
-
-> **PASSRATE 协议：** 隐藏测试驱动（`tail`）以 `RUN_TEST(name, cond)` 累计通过数与总数，`main` 末尾只输出一行 `PASSRATE <passed>/<total>`（不逐条打印）。编译服务器将该行解析为 `pass_count`/`total_count`，并从用户可见 `stdout` 中剔除。
+**响应体** —— 与 [`/judge/{id}`](#post-judgeid) 相同（含 `pass_count`/`total_count`）。无 `cases` 时回退到旧式单次运行：若隐藏驱动在 stdout 末尾输出 `PASSRATE <passed>/<total>` 行，则解析为 `pass_count`/`total_count` 并从用户可见 stdout 中剔除。
 
 ---
 
@@ -288,14 +287,17 @@ curl -X POST http://localhost:8080/judge/1 \
 | `title` | 字符串 | 是 | 题目标题 |
 | `rank` | 字符串 | 是 | 简单 / 中等 / 困难 |
 | `desc` | 字符串 | 否 | 题目描述 |
-| `header` | 字符串 | 否 | 隐藏前置代码 |
-| `answer` | 字符串 | 否 | 编辑器模板代码 |
-| `tail` | 字符串 | 是 | **隐藏测试用例**（判题唯一依据，答题页对用户不可见；遵循 PASSRATE 协议） |
+| `header` | 字符串 | 否 | 隐藏前置代码（头文件/辅助类型，学生不可见；函数接口模式使用） |
+| `answer` | 字符串 | 否 | 在线编辑器预填代码：`function` 模式只放待实现函数/类；`acm` 模式放含 `main()` 的完整程序 |
+| `tail` | 字符串 | 否 | 隐藏尾部代码（学生不可见）：`function` 模式放读 stdin → 调 answer 函数 → 按要求输出的隐藏 `main()` 驱动；`acm` 模式留空 |
+| `mode` | 字符串 | 否 | `function` 或 `acm`（缺省 `acm`），负责人/管理员自选 |
+| `visible_cases` | 数组 | 否 | 显式样例 `[{name?, input, expected, explain?}]`，答题页展示、不判题 |
+| `hidden_cases` | 数组 | 是 | 隐藏判题用例 `[{input, expected}...]`（至少 1 个，判题唯一依据，学生不可见） |
 | `cpu_limit` | 整数 | 是 | 秒 |
 | `mem_limit` | 整数 | 是 | MB |
 | `scope` | 字符串 | 是 | `global` 或小组 id |
 
-> `tail` 在新增与修改时均为**必填**（缺失时返回 `{"message": "必须设置不可见测试案例(tail)"}`）。
+> `hidden_cases`（≥1）在新增与修改时均为**必填**。`mode = "function"` 时 `tail` 需含隐藏 `main()` 驱动。无 `hidden_cases` 的旧题回退到旧式单次运行/PASSRATE 判题。
 
 **响应：** `200 OK` —— `{"ok": true, "id": 3}`
 

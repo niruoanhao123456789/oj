@@ -296,7 +296,7 @@ namespace oj_control
             oj_user_model::User cur;
             if(!GetSessionUser(auth,&cur))
             {
-                *html = MessagePage("请先登录","登录后才能浏览题目列表。");
+                *html = LoginGatePage();
                 return;
             }
 
@@ -324,7 +324,7 @@ namespace oj_control
             oj_user_model::User cur;
             if(!GetSessionUser(auth,&cur))
             {
-                *html = MessagePage("请先登录","登录后才能查看与解答题目。");
+                *html = LoginGatePage();
                 return;
             }
 
@@ -379,12 +379,27 @@ namespace oj_control
             reader.parse(in_json,in_value);
             std::string code = in_value["code"].asString();
 
-            // 2. 重新拼接用户代码+隐藏测试用例(tail, 判题唯一依据), 形成新的代码
+            // 2. 重新拼接 用户代码+可选的尾部代码(tail), 形成完整源码
+            //    判题依据为隐藏判题用例 hidden_cases({input,expected}): 判题端逐例喂 stdin 比对 stdout
             Json::Value compile_value;
-            compile_value["input"] = in_value["input"].asString();
             compile_value["code"] = q._header + "\n" + code + "\n" + q._tail;
             compile_value["cpu_limit"] = q._cpu_limit;
             compile_value["mem_limit"] = q._mem_limit;
+
+            Json::Value hidden;
+            {
+                Json::Reader r;
+                r.parse(q._hidden_cases,hidden);
+            }
+            if(hidden.isArray() && hidden.size())
+            {
+                compile_value["cases"] = hidden;
+            }
+            else
+            {
+                // 兼容旧式: 无隐藏用例配置时按单次运行处理(含 PASSRATE 协议解析)
+                compile_value["input"] = in_value["input"].asString();
+            }
 
             Json::FastWriter writer;
             std::string compile_string = writer.write(compile_value);
@@ -448,7 +463,7 @@ namespace oj_control
             oj_user_model::User cur;
             if(!GetSessionUser(auth,&cur))
             {
-                *html = MessagePage("无法访问","请先登录后再管理小组。");
+                *html = LoginGatePage();
                 return;
             }
 
@@ -839,7 +854,40 @@ namespace oj_control
             *out_json = WriteJson(out);
         }
 
-        // ---------- 题目管理 (见 SPEC.md §5.13 ~ §5.16) ----------
+        // ---------- 题目管理 (见 SPEC.md §5.14 ~ §5.17) ----------
+
+        // 将数组类型的用例字段规范化为 JSON 字符串; hidden=true 表示隐藏用例(必填至少一个)
+        static bool CaseArrayToString(const Json::Value& arr,std::string* out,std::string* err,bool hidden)
+        {
+            if(arr.isNull() || arr.empty())
+            {
+                if(hidden)
+                {
+                    *err = "必须至少添加一个隐藏测试案例";
+                    return false;
+                }
+                *out = "[]";
+                return true;
+            }
+            if(!arr.isArray())
+            {
+                *err = hidden ? "隐藏测试案例格式非法" : "显式样例格式非法";
+                return false;
+            }
+            for(Json::ArrayIndex i = 0;i < arr.size();++i)
+            {
+                const Json::Value& c = arr[i];
+                if(!c.isObject() || !c.isMember("input") || !c.isMember("expected"))
+                {
+                    *err = std::string(hidden ? "隐藏案例" : "显式样例") + " #" +
+                        std::to_string(i + 1) + " 缺少 input 或 expected 字段";
+                    return false;
+                }
+            }
+            Json::FastWriter writer;
+            *out = writer.write(arr);
+            return true;
+        }
 
         static bool ParseQuestionJson(const Json::Value& in,Question* q,std::string* err)
         {
@@ -854,6 +902,10 @@ namespace oj_control
             q->_scope = in["scope"].asString();
             if(q->_scope.empty())
                 q->_scope = "global";
+            // 出题模式: 'function' 函数接口(学生只写函数, main 驱动在 tail) / 'acm' 传统ACM IO(main 在 answer)
+            q->_mode = in["mode"].asString();
+            if(q->_mode != "function" && q->_mode != "acm")
+                q->_mode = "acm";
             if(q->_title.empty())
             {
                 *err = "题目标题不能为空";
@@ -864,9 +916,15 @@ namespace oj_control
                 *err = "非法的难度";
                 return false;
             }
-            if(q->_tail.empty())
+            // 隐藏判题用例必填(至少一个); 显式样例可选
+            if(!CaseArrayToString(in["visible_cases"],&q->_visible_cases,err,false) ||
+               !CaseArrayToString(in["hidden_cases"],&q->_hidden_cases,err,true))
+                return false;
+            // 函数接口模式: tail 需要提供读 stdin 并调用 answer 函数的 main 驱动
+            if(q->_mode == "function" &&
+               (q->_tail.empty() || q->_tail.find("int main") == std::string::npos))
             {
-                *err = "必须设置不可见测试案例(tail)";
+                *err = "函数接口模式需在 tail 提供隐藏的 main() 驱动(读入输入 -> 调用学生函数 -> 按要求输出)";
                 return false;
             }
             return true;
@@ -895,8 +953,6 @@ namespace oj_control
                 "<p style=\"color:#64748B;margin:0 0 28px;line-height:1.8;\">" + message + "</p>"
                 "<div style=\"display:flex;gap:12px;justify-content:center;flex-wrap:wrap;\">"
                 "<a href=\"/\" style=\"display:inline-block;padding:10px 24px;border-radius:12px;background:#fff;color:#0369A1;border:1px solid #E0F2FE;text-decoration:none;\">返回首页</a>"
-                "<a href=\"/login\" style=\"display:inline-block;padding:10px 24px;border-radius:12px;background:#0EA5E9;color:#fff;text-decoration:none;\">去登录</a>"
-                "<a href=\"/register\" style=\"display:inline-block;padding:10px 24px;border-radius:12px;background:#fff;color:#0369A1;border:1px solid #E0F2FE;text-decoration:none;\">去注册</a>"
                 "</div></div>"
                 "<script>try{var t=localStorage.getItem('oj_token');if(t&&!sessionStorage.getItem('oj_msg_retry')){"
                 "sessionStorage.setItem('oj_msg_retry','1');"
@@ -904,6 +960,32 @@ namespace oj_control
                 "sessionStorage.removeItem('oj_msg_retry');"
                 "if(h.indexOf('id=\"oj-msg-page\"')===-1){document.open();document.write(h);document.close();}"
                 "}).catch(function(){sessionStorage.removeItem('oj_msg_retry');});}}catch(e){}</script>"
+                "</body></html>";
+            return html;
+        }
+
+        // 未登录访问受保护页面时的“唯一入口引导”: 不渲染额外的登录/注册页面,
+        // 本地有 token 则先静默携带 Authorization 重取本页(会话有效则直接恢复原页),
+        // 否则一律跳转到唯一登录页 /login(注册入口仅在 /login 与 /register 页提供)。
+        std::string LoginGatePage()
+        {
+            std::string html =
+                "<!DOCTYPE html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\">"
+                "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">"
+                "<title>正在进入...</title></head>"
+                "<body id=\"oj-msg-page\" style=\"margin:0;background:#F0F9FF;color:#64748B;"
+                "min-height:100vh;display:flex;align-items:center;justify-content:center;"
+                "font-family:\"Noto Sans SC\",\"PingFang SC\",\"Microsoft YaHei\",sans-serif;font-size:14px;\">"
+                "<div>正在进入系统，请稍候…</div>"
+                "<script>try{var t=localStorage.getItem('oj_token');"
+                "if(t&&!sessionStorage.getItem('oj_msg_retry')){"
+                "sessionStorage.setItem('oj_msg_retry','1');"
+                "fetch(location.href,{headers:{'Authorization':'Bearer '+t}}).then(function(r){return r.text();}).then(function(h){"
+                "sessionStorage.removeItem('oj_msg_retry');"
+                "if(h.indexOf('id=\"oj-msg-page\"')===-1){document.open();document.write(h);document.close();}"
+                "else{location.replace('/login');}"
+                "}).catch(function(){sessionStorage.removeItem('oj_msg_retry');location.replace('/login');});"
+                "}else{location.replace('/login');}}catch(e){location.replace('/login');}</script>"
                 "</body></html>";
             return html;
         }
@@ -1070,9 +1152,14 @@ namespace oj_control
         void QuestionManage(const std::string& auth,std::string* html)
         {
             oj_user_model::User cur;
-            if(!GetSessionUser(auth,&cur) || (cur._role != "admin" && cur._role != "leader"))
+            if(!GetSessionUser(auth,&cur))
             {
-                *html = MessagePage("无法访问","需要管理员或负责人登录后才能管理题目。");
+                *html = LoginGatePage();
+                return;
+            }
+            if(cur._role != "admin" && cur._role != "leader")
+            {
+                *html = MessagePage("无法访问","需要管理员或负责人权限。");
                 return;
             }
 
@@ -1115,9 +1202,14 @@ namespace oj_control
         void QuestionEdit(const std::string& auth,const std::string& id,std::string* html)
         {
             oj_user_model::User cur;
-            if(!GetSessionUser(auth,&cur) || (cur._role != "admin" && cur._role != "leader"))
+            if(!GetSessionUser(auth,&cur))
             {
-                *html = MessagePage("无法访问","需要管理员或负责人登录后才能管理题目。");
+                *html = LoginGatePage();
+                return;
+            }
+            if(cur._role != "admin" && cur._role != "leader")
+            {
+                *html = MessagePage("无法访问","需要管理员或负责人权限。");
                 return;
             }
 

@@ -85,3 +85,6 @@ output/
 
 # agents
 .opencode/
+# python
+__pycache__/
+*.pyc

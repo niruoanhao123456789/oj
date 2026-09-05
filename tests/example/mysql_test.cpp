@@ -183,302 +183,325 @@ static bool DoSeed()
     // ---- 题目(原题 1/2 内容原样保留, 另造 3 道覆盖 global 与组内题) ----
     Question q;
 
-    // 原题 1: 判断回文数(global)
+    // 演示题 1: 判断回文数
     q = Question();
     q._title = "判断回文数";
     q._rank = Question::EASY;
     q._desc = R"Q1D(判断一个整数是否是回文数。回文数是指正序（从左向右）和倒序（从右向左）读都是一样的整数。
 
-示例 1:
+输入格式：
+一个整数 x。
 
-输入: 121
-输出: true
-
-
-示例 2:
-
-输入: -121
-输出: false
-解释: 从左向右读, 为 -121 。 从右向左读, 为 121- 。因此它不是一个回文数。
-
-
-示例 3:
-
-输入: 10
-输出: false
-解释: 从右向左读, 为 01 。因此它不是一个回文数。
-进阶:
-
-你能不将整数转为字符串来解决这个问题吗？)Q1D";
+输出格式：
+输出 true 表示 x 是回文数，输出 false 表示不是。)Q1D";
     q._header = R"Q1H(#include <iostream>
 #include <string>
-#include <vector>
-#include <unordered_map>
-#include <algorithm>
-
-using namespace std;
-)Q1H";
-    q._answer = R"Q1A(class Solution
+using namespace std;)Q1H";
+    q._answer = R"Q1A(bool isPalindrome(int x)
 {
-public:
-    bool isPalindrome(int x)
-    {
-        // code write here...
-    }
-};
-)Q1A";
-    q._tail = R"Q1T(#ifndef COMPILER_ONLINE
-#include "header.cpp"
-#include "answer.cpp"
-#endif
-
-int g_pass = 0, g_total = 0;
-#define RUN_TEST(name, cond) do { ++g_total; if(cond) ++g_pass; } while(0)
-
-void test1()
+    // 在此编写你的代码
+})Q1A";
+    q._tail = R"Q1T(int main()
 {
-    RUN_TEST("回文数121", Solution().isPalindrome(121));
-}
-
-void test2()
-{
-    RUN_TEST("回文数-121", !Solution().isPalindrome(-121));
-}
-
-void test3()
-{
-    RUN_TEST("回文数10", !Solution().isPalindrome(10));
-}
-
-int main()
-{
-    test1();
-    test2();
-    test3();
-
-    std::cout << "PASSRATE " << g_pass << "/" << g_total << std::endl;
+    int x;
+    cin >> x;
+    cout << (isPalindrome(x) ? "true" : "false") << endl;
     return 0;
+})Q1T";
+    q._mode = "function";
+    q._visible_cases = R"Q1VC([
+{
+"name": "示例1",
+"input": "121",
+"expected": "true"
+},
+{
+"name": "示例2",
+"input": "-121",
+"expected": "false",
+"explain": "从左向右读为 -121，从右向左读为 121-，因此不是回文数。"
+},
+{
+"name": "示例3",
+"input": "10",
+"expected": "false",
+"explain": "从右向左读为 01，因此不是回文数。"
 }
-)Q1T";
+])Q1VC";
+    q._hidden_cases = R"Q1HC([
+{
+"input": "121",
+"expected": "true"
+},
+{
+"input": "-121",
+"expected": "false"
+},
+{
+"input": "10",
+"expected": "false"
+},
+{
+"input": "1001",
+"expected": "true"
+},
+{
+"input": "0",
+"expected": "true"
+}
+])Q1HC";
     q._cpu_limit = 1;
     q._mem_limit = 30;
     q._scope = "global";
-    SEED_CHECK(qm.AddQuestion(&q), "入库原题1 判断回文数(global)");
+    SEED_CHECK(qm.AddQuestion(&q), "入库演示题1 (global)");
 
-    // 原题 2: 求最大值(global)
+    // 演示题 2: 求最大值
     q = Question();
     q._title = "求最大值";
     q._rank = Question::EASY;
-    q._desc = R"Q2D(求一个数组中最大值。
+    q._desc = R"Q2D(给定一个由整数构成的数组，求该数组中的最大值。
 
-示例 1:
+输入格式：
+第一行一个整数 N，表示数组长度；
+第二行 N 个整数，即数组元素。
 
-输入: {1,2,3,4,5,6,12,3,4,-1}
-输出: 12)Q2D";
+输出格式：
+一个整数，表示数组中的最大值。)Q2D";
     q._header = R"Q2H(#include <iostream>
 #include <vector>
-#include <algorithm>
-#include <ctype.h>
-
-using namespace std;
-)Q2H";
-    q._answer = R"Q2A(class Solution
+using namespace std;)Q2H";
+    q._answer = R"Q2A(int Max(const vector<int>& nums)
 {
-public:
-    int Max(const vector<int> &nums)
-    {
-        // code write here...
-    }
-};
-)Q2A";
-    q._tail = R"Q2T(#ifndef COMPILER_ONLINE
-#include "header.cpp"
-#include "answer.cpp"
-#endif
-
-int g_pass = 0, g_total = 0;
-#define RUN_TEST(name, cond) do { ++g_total; if(cond) ++g_pass; } while(0)
-
-void test1()
+    // 在此编写你的代码
+})Q2A";
+    q._tail = R"Q2T(int main()
 {
-    std::vector<int> v = {1,2,3,4,5,6,12,3,4,-1};
-    RUN_TEST("最大值12", Solution().Max(v) == 12);
-}
-
-int main()
-{
-    test1();
-
-    std::cout << "PASSRATE " << g_pass << "/" << g_total << std::endl;
+    int n;
+    cin >> n;
+    vector<int> nums(n);
+    for (int i = 0; i < n; ++i)
+        cin >> nums[i];
+    cout << Max(nums) << endl;
     return 0;
+})Q2T";
+    q._mode = "function";
+    q._visible_cases = R"Q2VC([
+{
+"name": "示例1",
+"input": "10\n1 2 3 4 5 6 12 3 4 -1",
+"expected": "12"
 }
-)Q2T";
+])Q2VC";
+    q._hidden_cases = R"Q2HC([
+{
+"input": "10\n1 2 3 4 5 6 12 3 4 -1",
+"expected": "12"
+},
+{
+"input": "1\n0",
+"expected": "0"
+},
+{
+"input": "4\n-5 -2 -9 -1",
+"expected": "-1"
+}
+])Q2HC";
     q._cpu_limit = 1;
     q._mem_limit = 30;
     q._scope = "global";
-    SEED_CHECK(qm.AddQuestion(&q), "入库原题2 求最大值(global)");
+    SEED_CHECK(qm.AddQuestion(&q), "入库演示题2 (global)");
 
-    // 新题 3: 两数之和(global)
+    // 演示题 3: 两数之和
     q = Question();
     q._title = "两数之和";
     q._rank = Question::EASY;
-    q._desc = R"Q3D(给定一个整数数组 nums 和一个整数目标值 target, 请你在该数组中找出和为目标值 target 的两个整数, 并返回它们的数组下标。
+    q._desc = R"Q3D(给定一个整数数组 nums 和一个整数目标值 target，在数组中找出和为 target 的两个整数，并输出它们的数组下标（从 0 开始）。题目保证只有唯一解。
 
-示例 1:
+输入格式：
+第一行两个整数 N 和 target；
+第二行 N 个整数，即数组元素。
 
-输入: nums = [2,7,11,15], target = 9
-输出: [0,1])Q3D";
+输出格式：
+一行两个整数：两个下标，中间以空格分隔。)Q3D";
     q._header = R"Q3H(#include <iostream>
 #include <vector>
-
-using namespace std;
-)Q3H";
-    q._answer = R"Q3A(class Solution
+using namespace std;)Q3H";
+    q._answer = R"Q3A(vector<int> twoSum(vector<int>& nums, int target)
 {
-public:
-    vector<int> twoSum(vector<int>& nums, int target)
-    {
-        // code write here...
-    }
-};
-)Q3A";
-    q._tail = R"Q3T(#ifndef COMPILER_ONLINE
-#include "header.cpp"
-#include "answer.cpp"
-#endif
-
-int g_pass = 0, g_total = 0;
-#define RUN_TEST(name, cond) do { ++g_total; if(cond) ++g_pass; } while(0)
-
-void test1()
+    // 在此编写你的代码
+})Q3A";
+    q._tail = R"Q3T(int main()
 {
-    vector<int> nums = {2,7,11,15};
-    vector<int> ret = Solution().twoSum(nums, 9);
-    RUN_TEST("两数之和", ret.size() == 2 && ret[0] == 0 && ret[1] == 1);
-}
-
-int main()
-{
-    test1();
-
-    std::cout << "PASSRATE " << g_pass << "/" << g_total << std::endl;
+    int n, target;
+    cin >> n >> target;
+    vector<int> nums(n);
+    for (int i = 0; i < n; ++i)
+        cin >> nums[i];
+    vector<int> ret = twoSum(nums, target);
+    cout << ret[0] << " " << ret[1] << endl;
     return 0;
+})Q3T";
+    q._mode = "function";
+    q._visible_cases = R"Q3VC([
+{
+"name": "示例1",
+"input": "4 9\n2 7 11 15",
+"expected": "0 1"
 }
-)Q3T";
+])Q3VC";
+    q._hidden_cases = R"Q3HC([
+{
+"input": "4 9\n2 7 11 15",
+"expected": "0 1"
+},
+{
+"input": "3 0\n-3 4 3",
+"expected": "0 2"
+},
+{
+"input": "3 6\n3 2 4",
+"expected": "1 2"
+}
+])Q3HC";
     q._cpu_limit = 1;
     q._mem_limit = 30;
     q._scope = "global";
-    SEED_CHECK(qm.AddQuestion(&q), "入库新题3 两数之和(global)");
+    SEED_CHECK(qm.AddQuestion(&q), "入库演示题3 (global)");
 
-    // 新题 4: 字符串反转(scope = 算法组)
+    // 演示题 4: 字符串反转
     q = Question();
     q._title = "字符串反转";
     q._rank = Question::NORMAL;
-    q._desc = R"Q4D(给定一个字符串 s, 返回它的反转字符串。
+    q._desc = R"Q4D(给定一个字符串 s，输出它的反转字符串。
 
-示例 1:
+输入格式：
+一行字符串（可能包含空格）。
 
-输入: "hello"
-输出: "olleh")Q4D";
+输出格式：
+一行字符串，为原串的反转。)Q4D";
     q._header = R"Q4H(#include <iostream>
 #include <string>
-#include <algorithm>
-
-using namespace std;
-)Q4H";
-    q._answer = R"Q4A(class Solution
+using namespace std;)Q4H";
+    q._answer = R"Q4A(string reverseString(string s)
 {
-public:
-    string reverseString(string s)
-    {
-        // code write here...
-    }
-};
-)Q4A";
-    q._tail = R"Q4T(#ifndef COMPILER_ONLINE
-#include "header.cpp"
-#include "answer.cpp"
-#endif
-
-int g_pass = 0, g_total = 0;
-#define RUN_TEST(name, cond) do { ++g_total; if(cond) ++g_pass; } while(0)
-
-void test1()
+    // 在此编写你的代码
+})Q4A";
+    q._tail = R"Q4T(int main()
 {
-    RUN_TEST("字符串反转", Solution().reverseString("hello") == "olleh");
-}
-
-int main()
-{
-    test1();
-
-    std::cout << "PASSRATE " << g_pass << "/" << g_total << std::endl;
+    string s;
+    getline(cin, s);
+    cout << reverseString(s) << endl;
     return 0;
+})Q4T";
+    q._mode = "function";
+    q._visible_cases = R"Q4VC([
+{
+"name": "示例1",
+"input": "hello",
+"expected": "olleh"
 }
-)Q4T";
+])Q4VC";
+    q._hidden_cases = R"Q4HC([
+{
+"input": "hello",
+"expected": "olleh"
+},
+{
+"input": "a b c",
+"expected": "c b a"
+},
+{
+"input": "racecar",
+"expected": "racecar"
+}
+])Q4HC";
     q._cpu_limit = 1;
     q._mem_limit = 30;
     q._scope = std::to_string(g1._id);
-    SEED_CHECK(qm.AddQuestion(&q), ("入库组内题4 字符串反转(scope=小组" + std::to_string(g1._id) + ")").c_str());
+    SEED_CHECK(qm.AddQuestion(&q), "入库演示题4 (scope=小组)");
 
-    // 新题 5: 链表反转(scope = 数据结构组)
+    // 演示题 5: 链表反转
     q = Question();
     q._title = "链表反转";
     q._rank = Question::DIFFICULT;
-    q._desc = R"Q5D(给定一个单链表的头节点 head, 请反转该链表, 并返回反转后的链表头节点。
+    q._desc = R"Q5D(给定一个单链表，反转该链表并输出反转后各结点的值。
 
-示例 1:
+输入格式：
+第一行一个整数 N，表示链表结点个数；
+第二行 N 个整数，即链表中各结点的值。
 
-输入: 1 -> 2 -> 3 -> 4 -> 5
-输出: 5 -> 4 -> 3 -> 2 -> 1)Q5D";
+输出格式：
+一行整数：反转后链表结点的值，以空格分隔。)Q5D";
     q._header = R"Q5H(#include <iostream>
-
-struct ListNode
+using namespace std;)Q5H";
+    q._answer = R"Q5A(struct ListNode
 {
     int val;
     ListNode* next;
     ListNode(int x) : val(x), next(nullptr) {}
 };
 
-using namespace std;
-)Q5H";
-    q._answer = R"Q5A(class Solution
+class Solution
 {
 public:
     ListNode* reverseList(ListNode* head)
     {
-        // code write here...
+        // 在此编写你的代码
     }
-};
-)Q5A";
-    q._tail = R"Q5T(#ifndef COMPILER_ONLINE
-#include "header.cpp"
-#include "answer.cpp"
-#endif
-
-int g_pass = 0, g_total = 0;
-#define RUN_TEST(name, cond) do { ++g_total; if(cond) ++g_pass; } while(0)
-
-void test1()
+};)Q5A";
+    q._tail = R"Q5T(int main()
 {
-    ListNode n1(1), n2(2), n3(3);
-    n1.next = &n2; n2.next = &n3;
-    ListNode* ret = Solution().reverseList(&n1);
-    RUN_TEST("链表反转", ret && ret->val == 3);
-}
-
-int main()
-{
-    test1();
-
-    std::cout << "PASSRATE " << g_pass << "/" << g_total << std::endl;
+    int n;
+    cin >> n;
+    ListNode* head = nullptr;
+    ListNode* tail = nullptr;
+    for (int i = 0; i < n; ++i)
+    {
+        int x;
+        cin >> x;
+        ListNode* p = new ListNode(x);
+        if (head == nullptr) head = tail = p;
+        else { tail->next = p; tail = p; }
+    }
+    ListNode* r = Solution().reverseList(head);
+    bool first = true;
+    while (r)
+    {
+        if (!first) cout << " ";
+        cout << r->val;
+        first = false;
+        r = r->next;
+    }
+    cout << endl;
     return 0;
+})Q5T";
+    q._mode = "function";
+    q._visible_cases = R"Q5VC([
+{
+"name": "示例1",
+"input": "5\n1 2 3 4 5",
+"expected": "5 4 3 2 1"
 }
-)Q5T";
+])Q5VC";
+    q._hidden_cases = R"Q5HC([
+{
+"input": "5\n1 2 3 4 5",
+"expected": "5 4 3 2 1"
+},
+{
+"input": "1\n42",
+"expected": "42"
+},
+{
+"input": "3\n1 2 3",
+"expected": "3 2 1"
+}
+])Q5HC";
     q._cpu_limit = 1;
     q._mem_limit = 30;
     q._scope = std::to_string(g2._id);
-    SEED_CHECK(qm.AddQuestion(&q), ("入库组内题5 链表反转(scope=小组" + std::to_string(g2._id) + ")").c_str());
+    SEED_CHECK(qm.AddQuestion(&q), "入库演示题5 (scope=小组)");
+
 
     return true;
 }

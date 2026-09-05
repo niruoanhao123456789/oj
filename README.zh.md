@@ -92,9 +92,9 @@
 
 1. 用户打开 `/question/{id}` 并点击「提交评测」。
 2. 浏览器向 `oj_server` 的 `/judge/{id}` 发起 `POST`，请求体为 `{"code": ...}`。
-3. `oj_server` 从 MySQL 加载题目，并拼接出完整源码：`header.cpp`（隐藏头）+ 用户代码 + `tail.cpp`（**隐藏测试用例**，答题页不对用户展示）。
-4. 负载均衡器选择**当前负载最小**的编译服务器，将 `{"code", "input", "cpu_limit", "mem_limit"}` 转发到其 `/compile_and_run` 接口。
-5. 编译服务器用 `g++` 编译，并在 `setrlimit` 的 CPU/内存限制下运行二进制，返回 JSON 评测结果（含 `pass_count`/`total_count`，按 PASSRATE 协议）。
+3. `oj_server` 从 MySQL 加载题目，并拼接出完整源码：`header`（隐藏头文件）+ 用户代码 + `tail`（隐藏代码；函数接口模式下 `tail` 是读 stdin → 调学生函数 → 按要求输出的隐藏 `main()` 驱动，学生不可见）。
+4. 负载均衡器选择**当前负载最小**的编译服务器，将 `{"code", "cases", "cpu_limit", "mem_limit"}` 转发到其 `/compile_and_run` 接口（`cases` 为题目配置的隐藏用例 `[{input, expected}]`，学生不可见）。
+5. 编译服务器用 `g++` 编译一次，并在 `setrlimit` 的 CPU/内存限制下**逐隐藏用例**运行：把用例 input 写入 stdin，将规范化后的 stdout 与 expected 比对，累计返回 `pass_count`/`total_count`（无隐藏用例的旧题回退到旧式单次运行/PASSRATE 路径）。
 6. 结果回传给浏览器，**仿 LeetCode** 渲染：除现有错误返回外，只显示「测试用例通过: X / Y（百分比）」，不展示具体通过的案例。
 
 ## 目录结构

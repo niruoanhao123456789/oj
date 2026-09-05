@@ -74,6 +74,26 @@ namespace oj_view
             return out;
         }
 
+        // 将已保存的用例 JSON 数组文本安全嵌入 <script>(避免 </script> 截断)
+        static std::string SafeArrayJson(const std::string& json)
+        {
+            if(json.empty())
+                return "[]";
+            std::string out;
+            out.reserve(json.size());
+            for(size_t i = 0;i < json.size();++i)
+            {
+                if(json[i] == '<' && i + 1 < json.size() && json[i+1] == '/')
+                {
+                    out += "<\\/";  // 保持合法JSON转义, 同时防截断
+                    ++i;
+                    continue;
+                }
+                out += json[i];
+            }
+            return out;
+        }
+
     public:
         void AllExpandHtml(const std::vector<Question>& questions,bool logged_in,std::string *html)
         {
@@ -110,6 +130,8 @@ namespace oj_view
             root.SetValue("rank",q.RankToString());
             root.SetValue("desc",q._desc);
             root.SetValue("pre_code",q._answer);
+            root.SetValue("samples",SafeArrayJson(q._visible_cases));  // 显式样例(不判题), 答题页展示
+            root.SetValue("mode",q._mode);
             root.SetValue("logged_in_flag",logged_in ? "1" : "0");
 
             ctemplate::Template* tpl = ctemplate::Template::GetTemplate(src_html,ctemplate::DO_NOT_STRIP);
@@ -148,7 +170,10 @@ namespace oj_view
                 "\",\"rank\":\"" + EscapeJson(q.RankToString()) + "\",\"desc\":\"" + EscapeJson(q._desc) +
                 "\",\"header\":\"" + EscapeJson(q._header) + "\",\"answer\":\"" + EscapeJson(q._answer) +
                 "\",\"tail\":\"" + EscapeJson(q._tail) + "\",\"cpu_limit\":" + std::to_string(q._cpu_limit) +
-                ",\"mem_limit\":" + std::to_string(q._mem_limit) + "}";
+                ",\"mem_limit\":" + std::to_string(q._mem_limit) + ",\"scope\":\"" + EscapeJson(q._scope) +
+                "\",\"mode\":\"" + EscapeJson(q._mode) +
+                "\",\"visible_cases\":" + SafeArrayJson(q._visible_cases) +
+                ",\"hidden_cases\":" + SafeArrayJson(q._hidden_cases) + "}";
             root.SetValue("qdata",qdata);
 
             // 难度下拉预选: 区块由 AddSectionDictionary 驱动

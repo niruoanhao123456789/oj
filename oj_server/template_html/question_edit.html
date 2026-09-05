@@ -37,52 +37,37 @@
             border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow);
         }
         .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); }
-        .brand svg { color: var(--primary); }
         .brand h1 { font-size: 20px; font-weight: 700; letter-spacing: 1px; }
         .brand h1 em { font-style: normal; color: var(--accent); }
-        .header nav { display: flex; gap: 10px; }
+        .header nav { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
         .header nav a {
             color: var(--text); text-decoration: none; font-size: 14px;
             padding: 7px 16px; border-radius: 10px;
             background: rgba(14,165,233,0.08); border: 1px solid var(--border);
             transition: all .25s ease;
         }
-        .header nav a:hover { background: var(--primary); color: #fff; box-shadow: 0 4px 14px rgba(14,165,233,0.35); }
+        .header nav a:hover { background: var(--primary); color: #fff; }
 
         .user-area { display: flex; align-items: center; gap: 6px; }
         .user-area a {
             color: var(--text); text-decoration: none; font-size: 13px;
             padding: 6px 12px; border-radius: 9px; cursor: pointer;
             background: rgba(14,165,233,0.08); border: 1px solid var(--border);
-            transition: all .25s ease;
         }
-        .user-area a:hover { background: var(--primary); color: #fff; }
-        .user-area a.reg { background: var(--accent-soft); border-color: rgba(249,115,22,0.25); }
-        .user-area a.reg:hover { background: var(--accent); color: #fff; }
         .user-area a.logout { background: transparent; border-color: transparent; color: var(--muted); }
         .user-area a.logout:hover { background: #FEF2F2; color: #DC2626; }
         .user-chip {
             display: inline-flex; align-items: center; gap: 6px;
             padding: 5px 12px; border-radius: 999px; font-size: 13px; font-weight: 600;
             background: #F0F9FF; color: var(--primary-dark); border: 1px solid var(--border);
-            max-width: 200px; overflow: hidden;
         }
-        .user-chip svg { color: var(--primary); flex-shrink: 0; }
         .user-chip em { font-style: normal; font-weight: 500; font-size: 11px; color: var(--muted); }
 
         .container { max-width: 1020px; margin: 40px auto 20px; padding: 0 20px; }
         .hero { text-align: center; padding: 12px 0 24px; }
-        .hero .eyebrow {
-            display: inline-block; font-size: 13px; color: var(--primary-dark);
-            background: rgba(14,165,233,0.10); border: 1px solid var(--border);
-            padding: 4px 14px; border-radius: 999px; margin-bottom: 12px; letter-spacing: 2px;
-        }
         .hero h2 { font-family: "Noto Serif SC", "Songti SC", "SimSun", serif; font-size: 28px; font-weight: 700; letter-spacing: 2px; }
 
-        .card {
-            background: var(--card); border: 1px solid var(--border);
-            border-radius: 18px; box-shadow: var(--shadow); padding: 28px;
-        }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow); padding: 28px; }
         .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; }
         .pair-row { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
         .pair-row .field { margin-bottom: 0; }
@@ -93,13 +78,58 @@
             width: 100%; padding: 10px 14px; font-size: 14px;
             border: 1px solid var(--border); border-radius: 10px;
             background: #FBFEFF; color: var(--text);
-            font-family: inherit; transition: border-color .2s ease, box-shadow .2s ease;
+            transition: border-color .2s ease, box-shadow .2s ease;
         }
         .field input:focus, .field select:focus, .field textarea:focus {
             outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(14,165,233,0.15);
         }
         .field textarea { resize: vertical; min-height: 120px; font-family: "Consolas", "Courier New", monospace; line-height: 1.6; }
-        .field .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+        .field .hint { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.8; display: block; }
+        .req { color: #DC2626; }
+
+        /* ---- 出题模式选择 ---- */
+        .seg-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 6px; }
+        .seg-item {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 9px 14px; border: 1px solid var(--border); border-radius: 10px;
+            background: #FBFEFF; cursor: pointer; font-size: 13px;
+            transition: border-color .2s ease, background .2s ease;
+        }
+        .seg-item:hover { border-color: #BAE6FD; background: #F0F9FF; }
+        .seg-item input { width: auto; margin: 0; accent-color: var(--primary); }
+        #modeTip { display: block; }
+
+        /* ---- 填空式测试用例列表 ---- */
+        .cases-box { border: 1px dashed var(--border); border-radius: 12px; padding: 14px 16px; background: #FBFEFF; }
+        .cases-box > label { margin-bottom: 8px; }
+        .case-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+        .case-toolbar .hint { margin: 0; }
+        .btn-mini {
+            background: #fff; color: var(--primary-dark);
+            border: 1px solid var(--border); font-size: 12px; padding: 4px 10px;
+            border-radius: 8px; cursor: pointer; transition: all .2s ease; white-space: nowrap;
+        }
+        .btn-mini:hover { background: #F0F9FF; }
+        .btn-mini.solid { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600; }
+        .btn-mini.solid:hover { background: var(--primary-dark); }
+        .btn-mini.danger { color: #DC2626; border-color: #FECACA; }
+        .btn-mini.danger:hover { background: #FEF2F2; }
+        .case-row { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; background: #fff; }
+        .case-row:hover { border-color: #BAE6FD; }
+        .case-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+        .case-no { font-size: 13px; font-weight: 700; color: var(--primary-dark); }
+        .case-no::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--primary); margin-right: 8px; }
+        .row-ops { display: flex; gap: 6px; }
+        .case-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+        .c-field label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; letter-spacing: 1px; }
+        .c-field input, .c-field textarea {
+            width: 100%; padding: 8px 10px; font-size: 13px;
+            border: 1px solid var(--border); border-radius: 8px; background: #FBFEFF;
+            font-family: "Consolas", "Courier New", monospace; line-height: 1.5;
+        }
+        .c-field textarea { resize: vertical; min-height: 60px; }
+        details.tail-advanced { grid-column: 1 / -1; margin-top: 4px; }
+        details.tail-advanced summary { cursor: pointer; font-weight: 600; color: var(--primary-dark); font-size: 14px; letter-spacing: 1px; }
 
         .actions { display: flex; gap: 14px; margin-top: 22px; align-items: center; }
         .btn {
@@ -111,16 +141,11 @@
         }
         .btn:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(249,115,22,0.45); }
         .btn:disabled { opacity: 0.7; cursor: wait; transform: none; }
-        .btn.secondary {
-            background: #fff; color: var(--primary-dark);
-            border: 1px solid var(--border); box-shadow: none;
-        }
-        .btn.secondary:hover { background: #F0F9FF; box-shadow: none; }
+        .btn.secondary { background: #fff; color: var(--primary-dark); border: 1px solid var(--border); box-shadow: none; }
         .msg { padding: 12px 16px; border-radius: 10px; font-size: 14px; display: none; }
         .msg.error { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
         .msg.success { background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; }
         footer { text-align: center; color: var(--muted); font-size: 13px; padding: 26px 20px 34px; }
-        footer .line { color: rgba(14,165,233,0.4); }
         @media (max-width: 720px) { .form-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
@@ -137,7 +162,7 @@
 
     <div class="container">
         <div class="hero">
-            <span class="eyebrow">题目管理</span>
+            <span class="eyebrow" style="display:inline-block;font-size:13px;color:var(--primary-dark);background:rgba(14,165,233,.10);border:1px solid var(--border);padding:4px 14px;border-radius:999px;margin-bottom:12px;letter-spacing:2px;">题目管理</span>
             <h2>{{page_title}}</h2>
         </div>
 
@@ -174,23 +199,55 @@
                         <input id="mem_limit" type="number" min="1" value="30">
                     </div>
                 </div>
+
                 <div class="field full">
-                    <label>初始代码（answer，在线编辑器预填）</label>
-                    <textarea id="answer" placeholder="// 用户编辑器的起始代码"></textarea>
+                    <label>出题模式</label>
+                    <div class="seg-row">
+                        <label class="seg-item"><input type="radio" name="qmode" id="modeAc" value="acm" onchange="applyMode()"><span>ACM 模式（传统 IO）—— 学生写含 main() 的完整程序，读 stdin 写 stdout</span></label>
+                        <label class="seg-item"><input type="radio" name="qmode" id="modeFn" value="function" onchange="applyMode()"><span>函数接口模式 —— 学生只实现函数，隐藏驱动(main)放在 tail</span></label>
+                    </div>
+                    <span class="hint" id="modeTip"></span>
+                </div>
+
+                <div class="field full">
+                    <label>初始代码（answer，在线编辑器预填 / 学生提交）</label>
+                    <textarea id="answer" spellcheck="false"></textarea>
+                    <span class="hint" id="answerHint"></span>
+                </div>
+                <div class="field full">
+                    <label>前置代码（header，头文件/辅助类型，学生不可见，拼接在学生代码之前）</label>
+                    <textarea id="header" placeholder="// 如：#include <iostream> / using namespace std; / struct / 工具函数" spellcheck="false"></textarea>
                 </div>
                 <div class="field full">
                     <label>题目描述（desc）</label>
-                    <textarea id="desc" placeholder="题目描述..."></textarea>
+                    <textarea id="desc" placeholder="题目描述...（建议写清输入/输出格式与数据范围）" spellcheck="false"></textarea>
                 </div>
-                <div class="field full">
-                    <label>前置代码（header，拼接在用户代码之前）</label>
-                    <textarea id="header" placeholder="// #include 与辅助代码"></textarea>
+
+                <div class="field full cases-box">
+                    <label>显式样例（展示给学生看的示例，不参与判题）</label>
+                    <div class="case-toolbar">
+                        <button type="button" class="btn-mini solid" onclick="addSample()">＋ 添加样例</button>
+                        <span class="hint">按题目输入/输出格式填空即可，可添加多个。</span>
+                    </div>
+                    <div id="sampleList"></div>
                 </div>
-                <div class="field full">
-                    <label>不可见测试案例（tail，判题唯一依据，必填）</label>
-                    <textarea id="tail" placeholder="// 隐藏测试用例：header + 用户代码 + tail 拼接后判题" required></textarea>
-                    <div class="hint">评测只依据该隐藏测试用例（tail 拼接在用户代码之后，按 PASSRATE 协议输出通过数），对答题用户不可见；发布前必须填写。</div>
+
+                <div class="field full cases-box">
+                    <label>隐藏测试案例 <span class="req">*</span>（判题唯一依据，学生不可见，至少 1 个）</label>
+                    <div class="case-toolbar">
+                        <button type="button" class="btn-mini solid" onclick="addHidden()">＋ 添加隐藏案例</button>
+                        <span class="hint">判题端会用每个案例的“输入”作为 stdin 运行程序，并比对“期望输出”。</span>
+                    </div>
+                    <div id="hiddenList"></div>
                 </div>
+
+                <details id="tailBox" class="field full tail-advanced">
+                    <summary>高级：尾部附加代码 tail（学生不可见）</summary>
+                    <div class="field" style="margin-top:10px;margin-bottom:0;">
+                        <textarea id="tail" placeholder="// 函数接口模式：在此放隐藏 main() 驱动" spellcheck="false"></textarea>
+                    </div>
+                    <span class="hint" id="tailHint"></span>
+                </details>
             </form>
             <div class="actions">
                 <button class="btn" id="saveBtn" onclick="submitForm()">保存</button>
@@ -198,7 +255,7 @@
             </div>
         </div>
 
-        <footer><span class="line">✦</span> 每一道题，都是一次耐心的雕琢 <span class="line">✦</span></footer>
+        <footer><span class="line" style="color:rgba(14,165,233,.4);">✦</span> 每一道题，都是一次耐心的雕琢 <span class="line" style="color:rgba(14,165,233,.4);">✦</span></footer>
     </div>
 
     <script type="application/json" id="qdata">{{qdata}}</script>
@@ -214,38 +271,149 @@
         var Q = {};
         try { Q = JSON.parse(document.getElementById('qdata').textContent); } catch (e) { Q = {}; }
 
-        // 预填表单
-        (function fill() {
-            var set = function (id, v) { var el = document.getElementById(id); if (el && v !== undefined && v !== null) el.value = v; };
-            set('title', Q.title);
+        // ================= 工具 =================
+        function esc(v) {
+            return String(v == null ? '' : v)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+        function getMode() {
+            return document.getElementById('modeFn').checked ? 'function' : 'acm';
+        }
+
+        // ================= 填空式用例列表 =================
+        function sampleRowHTML(d) {
+            d = d || {};
+            return '<div class="case-row">'
+                + '<div class="case-head"><span class="case-no">样例</span><div class="row-ops">'
+                + '<button type="button" class="btn-mini" onclick="moveRow(this,-1)" title="上移">↑</button>'
+                + '<button type="button" class="btn-mini" onclick="moveRow(this,1)" title="下移">↓</button>'
+                + '<button type="button" class="btn-mini danger" onclick="removeRow(this)">删除</button>'
+                + '</div></div><div class="case-grid">'
+                + '<div class="c-field"><label>标题（可选）</label><input type="text" class="c-name" value="' + esc(d.name) + '" placeholder="如：示例 1"></div>'
+                + '<div class="c-field"><label>输入</label><textarea class="c-input" placeholder="该样例的程序标准输入">' + esc(d.input) + '</textarea></div>'
+                + '<div class="c-field"><label>期望输出</label><textarea class="c-expected" placeholder="程序应输出的内容">' + esc(d.expected) + '</textarea></div>'
+                + '<div class="c-field"><label>解释（可选）</label><textarea class="c-explain" placeholder="给学生的解释">' + esc(d.explain) + '</textarea></div>'
+                + '</div></div>';
+        }
+        function hiddenRowHTML(d) {
+            d = d || {};
+            return '<div class="case-row">'
+                + '<div class="case-head"><span class="case-no">隐藏案例</span><div class="row-ops">'
+                + '<button type="button" class="btn-mini" onclick="moveRow(this,-1)" title="上移">↑</button>'
+                + '<button type="button" class="btn-mini" onclick="moveRow(this,1)" title="下移">↓</button>'
+                + '<button type="button" class="btn-mini danger" onclick="removeRow(this)">删除</button>'
+                + '</div></div><div class="case-grid">'
+                + '<div class="c-field"><label>输入</label><textarea class="c-input" placeholder="该案例的程序标准输入">' + esc(d.input) + '</textarea></div>'
+                + '<div class="c-field"><label>期望输出</label><textarea class="c-expected" placeholder="程序应输出的内容">' + esc(d.expected) + '</textarea></div>'
+                + '</div></div>';
+        }
+        function addSample(d) { document.getElementById('sampleList').insertAdjacentHTML('beforeend', sampleRowHTML(d || {})); renumber(); }
+        function addHidden(d) { document.getElementById('hiddenList').insertAdjacentHTML('beforeend', hiddenRowHTML(d || {})); renumber(); }
+        function removeRow(btn) { var row = btn.closest('.case-row'); if (row) row.parentNode.removeChild(row); renumber(); }
+        function moveRow(btn, dir) {
+            var row = btn.closest('.case-row'); if (!row) return;
+            if (dir < 0 && row.previousElementSibling) row.parentNode.insertBefore(row, row.previousElementSibling);
+            else if (dir > 0 && row.nextElementSibling) row.parentNode.insertBefore(row.nextElementSibling, row);
+            renumber();
+        }
+        function renumber() {
+            ['sampleList', 'hiddenList'].forEach(function (id) {
+                var rows = document.querySelectorAll('#' + id + ' .case-row');
+                Array.prototype.forEach.call(rows, function (r, i) {
+                    var no = r.querySelector('.case-no');
+                    if (no) no.textContent = (id === 'sampleList' ? '样例 ' : '隐藏案例 ') + (i + 1);
+                });
+            });
+        }
+        function collectRows(listId, withExtra) {
+            var out = [];
+            var rows = document.querySelectorAll('#' + listId + ' .case-row');
+            Array.prototype.forEach.call(rows, function (r) {
+                var get = function (cls) { var el = r.querySelector('.' + cls); return el ? el.value : ''; };
+                var input = get('c-input');
+                var expected = get('c-expected');
+                if (withExtra) {
+                    var name = get('c-name'), explain = get('c-explain');
+                    if (!name && !input && !expected && !explain) return;
+                    out.push({ name: name, input: input, expected: expected, explain: explain });
+                } else {
+                    if (!input && !expected) return;
+                    out.push({ input: input, expected: expected });
+                }
+            });
+            return out;
+        }
+
+        // ================= 出题模式提示与骨架 =================
+        var MODE_TIPS = {
+            acm: '学生编辑器预填/提交的是完整程序（含 main()）：按题面从 cin 读入、按格式 cout。header/tail 一般留空；判题会用隐藏测试案例的输入运行该程序并与期望输出比对。',
+            function: 'header 放学生不可见的 #include/using/辅助类型；answer 只放待实现函数/类（学生只能看到并编辑这段）；tail 放隐藏 main() 驱动：从 stdin 按题面输入格式读入 → 调用 answer 中的函数 → 按输出格式打印。判题同样以隐藏测试案例（输入/期望输出）比对。'
+        };
+
+        function applyMode() {
+            var mode = getMode();
+            var tip = document.getElementById('modeTip');
+            if (tip) tip.textContent = MODE_TIPS[mode];
+            var tailBox = document.getElementById('tailBox');
+            if (tailBox) tailBox.open = (mode === 'function');
+            var ans = document.getElementById('answer');
+            var th = document.getElementById('tailHint');
+            if (ans) ans.placeholder = (mode === 'function')
+                ? '// 只写题目要求实现的函数/类，不要写 main()'
+                : '// 含 main() 的完整程序：读入 -> 求解 -> 输出';
+            var ah = document.getElementById('answerHint');
+            if (ah) ah.textContent = (mode === 'function')
+                ? '函数接口模式：answer 中不要包含 main()；学生函数会被 tail 的隐藏 main 调用。'
+                : 'ACM 模式：answer 就是学生提交的完整程序（含 main()），tail 一般留空。';
+            if (th) th.textContent = (mode === 'function')
+                ? '请填写读入输入、调用 answer 函数并按要求输出的 main() 驱动（学生不可见）。示例：int main(){ int x; cin>>x; cout << (fun(x) ? "true":"false") << endl; return 0; }'
+                : 'ACM 模式一般留空（学生程序自带 main）。';
+        }
+
+        // ================= 预填 =================
+        function setVal(id, v) { var el = document.getElementById(id); if (el && v !== undefined && v !== null) el.value = v; }
+
+        (function init() {
+            setVal('title', Q.title);
             if (Q.rank) document.getElementById('rank').value = Q.rank;
-            set('desc', Q.desc);
-            set('header', Q.header);
-            set('answer', Q.answer);
-            set('tail', Q.tail);
-            if (Q.cpu_limit) set('cpu_limit', Q.cpu_limit);
-            if (Q.mem_limit) set('mem_limit', Q.mem_limit);
+            if (Q.scope) document.getElementById('scope').value = Q.scope;
+            setVal('desc', Q.desc);
+            setVal('header', Q.header);
+            setVal('answer', Q.answer);
+            setVal('tail', Q.tail);
+            if (Q.cpu_limit) setVal('cpu_limit', Q.cpu_limit);
+            if (Q.mem_limit) setVal('mem_limit', Q.mem_limit);
+
+            // 模式: 优先用已存 mode; 无则按 main 所在位置推断(tail 有 main -> function)
+            var mode = (Q.mode === 'function' || Q.mode === 'acm') ? Q.mode : 'acm';
+            if (Q.tail && /int\s+main\s*\(/.test(Q.tail) && !/int\s+main\s*\(/.test(Q.answer || '')) mode = 'function';
+            if (Q.answer && /int\s+main\s*\(/.test(Q.answer)) mode = 'acm';
+            document.getElementById(mode === 'function' ? 'modeFn' : 'modeAc').checked = true;
+            applyMode();
+
+            // 用例列表
+            var vs = Array.isArray(Q.visible_cases) ? Q.visible_cases : [];
+            var hs = Array.isArray(Q.hidden_cases) ? Q.hidden_cases : [];
+            if (!vs.length) addSample({});
+            else vs.forEach(function (d) { addSample(d || {}); });
+            if (!hs.length) addHidden({});
+            else hs.forEach(function (d) { addHidden(d || {}); });
         })();
 
         function navFetch(url) {
             fetch(url, { headers: HDR })
                 .then(function (r) { return r.text(); })
                 .then(function (html) {
-                    if (html.indexOf('id="oj-msg' + '-page"') !== -1) { location.href = url; return; }
+                    if (html.indexOf('id="oj-msg' + '-page"') !== -1) { location.href = '/login'; return; }
                     document.open(); document.write(html); document.close();
                 })
                 .catch(function () { location.href = url; });
         }
-
         function goManage() {
-            if (TOKEN) {
-                navFetch('/question_manage');
-            } else {
-                location.href = '/question_manage';
-            }
+            if (TOKEN) navFetch('/question_manage');
+            else location.href = '/question_manage';
         }
-
-        // 带 Authorization 的页面内跳转
         document.addEventListener('click', function (e) {
             var a = e.target.closest ? e.target.closest('a[data-fetch]') : null;
             if (!a) return;
@@ -264,11 +432,8 @@
                 links += pageExtra;
                 nav.innerHTML = links
                     + '<div class="user-area" id="userArea">'
-                    + '<span class="user-chip" title="' + USER + '">'
-                    + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
-                    + USER + '<em>' + (roleMap[ROLE] || ROLE) + '</em></span>'
-                    + '<a href="#" class="logout" id="logoutBtn">退出</a>'
-                    + '</div>';
+                    + '<span class="user-chip">' + USER + '<em>' + (roleMap[ROLE] || ROLE) + '</em></span>'
+                    + '<a href="#" class="logout" id="logoutBtn">退出</a></div>';
                 var lo = document.getElementById('logoutBtn');
                 if (lo) lo.addEventListener('click', function (ev) {
                     ev.preventDefault();
@@ -281,9 +446,7 @@
                     location.href = '/login';
                 });
             } else {
-                nav.innerHTML = '<div class="user-area" id="userArea">'
-                    + '<a href="/login" data-fetch="1">登录</a><a href="/register" data-fetch="1" class="reg">注册</a>'
-                    + '</div>';
+                nav.innerHTML = '';
             }
         }
         renderHeader();
@@ -296,8 +459,21 @@
         function submitForm() {
             if (!TOKEN) { showMsg('error', '请先登录后再操作'); return false; }
             var id = Q.id || '';
+            var mode = getMode();
+            var visibleCases = collectRows('sampleList', true);
+            var hiddenCases = collectRows('hiddenList', false);
+            var title = document.getElementById('title').value.trim();
+            if (!title) { showMsg('error', '题目标题不能为空'); return false; }
+            if (!hiddenCases.length) { showMsg('error', '请至少填写 1 个隐藏测试案例'); return false; }
+            if (mode === 'function') {
+                var tail = document.getElementById('tail').value || '';
+                if (!/int\s+main\s*\(/.test(tail)) {
+                    showMsg('error', '函数接口模式需要在 tail 中提供隐藏的 main() 驱动（读入输入 -> 调用学生函数 -> 输出）');
+                    return false;
+                }
+            }
             var payload = {
-                title: document.getElementById('title').value,
+                title: title,
                 rank: document.getElementById('rank').value,
                 scope: document.getElementById('scope').value,
                 desc: document.getElementById('desc').value,
@@ -305,10 +481,11 @@
                 answer: document.getElementById('answer').value,
                 tail: document.getElementById('tail').value,
                 cpu_limit: parseInt(document.getElementById('cpu_limit').value, 10) || 1,
-                mem_limit: parseInt(document.getElementById('mem_limit').value, 10) || 30
+                mem_limit: parseInt(document.getElementById('mem_limit').value, 10) || 30,
+                mode: mode,
+                visible_cases: visibleCases,
+                hidden_cases: hiddenCases
             };
-            if (!payload.title) { showMsg('error', '题目标题不能为空'); return false; }
-            if (!payload.tail) { showMsg('error', '必须设置不可见测试案例(tail)'); return false; }
             var btn = document.getElementById('saveBtn');
             btn.disabled = true;
 
@@ -321,13 +498,8 @@
                 if (xhr.readyState === 4 && xhr.status === 200) {
                     var data = {};
                     try { data = JSON.parse(xhr.responseText); } catch (e) {}
-                    if (data.ok) {
-                        showMsg('success', '保存成功，跳转中...');
-                        setTimeout(goManage, 600);
-                    } else {
-                        showMsg('error', data.message || '保存失败');
-                        btn.disabled = false;
-                    }
+                    if (data.ok) { showMsg('success', '保存成功，跳转中...'); setTimeout(goManage, 600); }
+                    else { showMsg('error', data.message || '保存失败'); btn.disabled = false; }
                 } else if (xhr.readyState === 4) {
                     showMsg('error', '保存失败: HTTP ' + xhr.status);
                     btn.disabled = false;

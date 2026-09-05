@@ -32,7 +32,7 @@ protected:
     std::string created_id_;
 };
 
-// Add/Update/Delete 往返: id 回填、字段与 scope 持久化、删除生效
+// Add/Update/Delete 往返: id 回填、字段/scope/mode/两套用例持久化、删除生效
 TEST_F(MysqlModelTest, AddUpdateDeleteRoundTrip)
 {
     oj_mysqlmodel::Model m;
@@ -46,6 +46,9 @@ TEST_F(MysqlModelTest, AddUpdateDeleteRoundTrip)
     q._cpu_limit = 1;
     q._mem_limit = 30;
     q._scope = "global";
+    q._mode = "function";
+    q._visible_cases = "[{\"name\":\"示例1\",\"input\":\"1\",\"expected\":\"true\"}]";
+    q._hidden_cases = "[{\"input\":\"1\",\"expected\":\"true\"},{\"input\":\"0\",\"expected\":\"false\"}]";
     ASSERT_TRUE(m.AddQuestion(&q));
     created_id_ = q._id;
     ASSERT_FALSE(q._id.empty());
@@ -57,15 +60,22 @@ TEST_F(MysqlModelTest, AddUpdateDeleteRoundTrip)
     EXPECT_EQ(back._rank, oj_mysqlmodel::Question::EASY);
     EXPECT_EQ(back._desc, "描述");
     EXPECT_EQ(back._scope, "global");
+    EXPECT_EQ(back._mode, "function");
+    EXPECT_EQ(back._visible_cases, q._visible_cases);
+    EXPECT_EQ(back._hidden_cases, q._hidden_cases);
 
-    // 更新 title 与 scope
+    // 更新 title/scope/mode/用例
     back._title = q._title + "_改";
     back._scope = "42";
+    back._mode = "acm";
+    back._hidden_cases = "[{\"input\":\"1\",\"expected\":\"1\"}]";
     ASSERT_TRUE(m.UpdateQuestion(back));
     oj_mysqlmodel::Question back2;
     m.GetOneQuestion(q._id, &back2);
     EXPECT_EQ(back2._title, q._title + "_改");
     EXPECT_EQ(back2._scope, "42");
+    EXPECT_EQ(back2._mode, "acm");
+    EXPECT_EQ(back2._hidden_cases, "[{\"input\":\"1\",\"expected\":\"1\"}]");
 
     ASSERT_TRUE(m.DeleteQuestion(q._id));
     created_id_.clear();

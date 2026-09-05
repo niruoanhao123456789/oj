@@ -93,7 +93,7 @@ Returns the page for a single question, including its description, difficulty, a
 - `200 OK`
 - `Content-Type: text/html; charset=utf-8`
 
-The page embeds the question data and pre-code; submitting from the editor `POST`s to `/judge/{id}` (see below). **Login is required** (anonymous visitors are guided to log in). Questions the logged-in user cannot see (non-global, not in their groups, and not admin/leader-own-group) return an access-denied notice.
+The page embeds the question data and pre-code (`answer`) and, when the question has `visible_cases`, renders them as sample cards; submitting from the editor `POST`s to `/judge/{id}` (see below). `header`, `tail` and `hidden_cases` are never exposed to students. **Login is required** (anonymous visitors are guided to log in). Questions the logged-in user cannot see (non-global, not in their groups, and not admin/leader-own-group) return an access-denied notice.
 
 **Example**
 
@@ -105,7 +105,7 @@ curl http://localhost:8080/question/1
 
 ## POST /judge/{id}
 
-Submits user code for a question and returns the judge result as JSON. The gateway builds the full program from `header + code + tail` (`tail` is the **hidden test cases**, not visible to users on the question page), selects the least-loaded compile server, and forwards the job.
+Submits user code for a question and returns the judge result as JSON. The gateway loads the question, builds the full program from `header + code + tail`, and forwards a job to the least-loaded compile server together with the question's hidden cases (`hidden_cases`, `[{input, expected}]`, invisible to students). The compile server compiles once and runs one process per hidden case, feeding each case's `input` to stdin and comparing stdout against `expected`.
 
 **Path:** `POST /judge/{id}`
 
@@ -122,14 +122,14 @@ Submits user code for a question and returns the judge result as JSON. The gatew
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `code` | string | yes | The user-submitted C++ source code. |
-| `input` | string | no | Optional stdin input passed to the program (defaults to empty). |
+| `input` | string | no | Optional stdin input (only used in the legacy single-run fallback when a question has no hidden cases). |
 
 **Example request**
 
 ```bash
 curl -X POST http://localhost:8080/judge/1 \
   -H "Content-Type: application/json; charset=utf-8" \
-  -d '{"code":"#include <iostream>\nint main(){std::cout<<\"ok\";return 0;}","input":""}'
+  -d '{"code":"#include <iostream>\nint main(){std::cout<<\"ok\";return 0;}"}'
 ```
 
 **Response**
@@ -143,10 +143,10 @@ curl -X POST http://localhost:8080/judge/1 \
 | --- | --- | --- |
 | `status` | integer | Judge status code (see [status codes](#judge-result-status-codes)). |
 | `reason` | string | Human-readable result description (Chinese). |
-| `stdout` | string | Program standard output. Present only when `status == 0` (PASSRATE line stripped). |
+| `stdout` | string | Program standard output (batch path returns `""`). |
 | `stderr` | string | Program standard error. Present only when `status == 0`. |
-| `pass_count` | integer | Passed hidden cases. Present when `status == 0` and the driver reports via the PASSRATE protocol. |
-| `total_count` | integer | Total hidden cases. Present when `status == 0` and the driver reports via the PASSRATE protocol. |
+| `pass_count` | integer | Passed hidden cases. Present when `status == 0`. |
+| `total_count` | integer | Total hidden cases. Present when `status == 0`. |
 
 > **Access & visibility:** only logged-in users may submit a judge (anonymous requests are told to log in first); among logged-in users, only questions visible to them may be judged.
 >
@@ -190,17 +190,18 @@ curl -X POST http://localhost:8080/judge/1 \
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `code` | string | yes | The **full** source code (`header + user code + tail`, `tail` = hidden test cases). |
-| `input` | string | no | Program stdin input (defaults to empty). |
+| `code` | string | yes | The **full** source code (`header + user code + tail`, `header`/`tail` may be empty). |
+| `input` | string | no | Program stdin input (used only when `cases` is absent). |
+| `cases` | array | no | Batch judging: `[{input, expected}...]`. When present the code is compiled once and then run once per case; stdout is normalized (trailing whitespace per line and trailing blank lines ignored) and compared with `expected`. |
 | `cpu_limit` | integer | yes | CPU time limit in seconds. |
 | `mem_limit` | integer | yes | Memory limit in MB. |
 
-**Example request**
+**Example request (batch)**
 
 ```json
 {
-  "code": "#include <iostream>\nint main(){ int n; std::cin >> n; std::cout << n * 2; }",
-  "input": "21",
+  "code": "#include <iostream>\nint main(){ int a,b; std::cin >> a >> b; std::cout << a + b; }",
+  "cases": [{"input": "1 2", "expected": "3"}, {"input": "10 20", "expected": "30"}],
   "cpu_limit": 1,
   "mem_limit": 30
 }
@@ -211,9 +212,7 @@ curl -X POST http://localhost:8080/judge/1 \
 - `200 OK` (even when the compiled program fails to run correctly; the outcome is described by `status`)
 - `Content-Type: application/json; charset=utf-8`
 
-**Response body** — identical to [`/judge/{id}`](#post-judgeid) (including `pass_count`/`total_count` per the PASSRATE protocol).
-
-> **PASSRATE protocol:** the hidden test driver (`tail`) accumulates passes via `RUN_TEST(name, cond)` and prints exactly one final line `PASSRATE <passed>/<total>` (no per-case output). The compile server parses this line into `pass_count`/`total_count` and removes it from the user-visible `stdout`.
+**Response body** — identical to [`/judge/{id}`](#post-judgeid) (including `pass_count`/`total_count`). When `cases` is absent the legacy single-run fallback applies and a `PASSRATE <passed>/<total>` line printed by the hidden driver is parsed into `pass_count`/`total_count` and stripped from `stdout`.
 
 ---
 
@@ -290,14 +289,17 @@ Creates a question (admin publishes global questions, leader publishes within th
 | `title` | string | yes | Question title |
 | `rank` | string | yes | 简单 / 中等 / 困难 |
 | `desc` | string | no | Description |
-| `header` | string | no | Hidden prologue code |
-| `answer` | string | no | Starter code for the editor |
-| `tail` | string | yes | **Hidden test cases** (sole judging basis, invisible to users on the question page; follow the PASSRATE protocol) |
+| `header` | string | no | Hidden prologue code (headers/helpers; used by `function`-mode questions, invisible to students) |
+| `answer` | string | no | Starter code in the editor: `function` mode → the functions/class to implement (no `main`); `acm` mode → a complete program with `main()` |
+| `tail` | string | no | Hidden trailing code (invisible to students): `function` mode → the hidden `main()` driver that reads input, calls the student function and prints per the output format; `acm` mode usually empty |
+| `mode` | string | no | `function` or `acm` (defaults to `acm`) |
+| `visible_cases` | array | no | Visible sample cases `[{name?, input, expected, explain?}]` shown to students on the answer page (not judged) |
+| `hidden_cases` | array | yes | Hidden judging cases `[{input, expected}...]` (≥1; sole judging basis, never shown to students) |
 | `cpu_limit` | integer | yes | Seconds |
 | `mem_limit` | integer | yes | MB |
 | `scope` | string | yes | `global` or a group id |
 
-> `tail` is required on both create and update (`{"message": "必须设置不可见测试案例(tail)"}` if missing).
+> `hidden_cases` (≥1) is required on both create and update. For `mode = "function"`, `tail` must contain the hidden `main()` driver. Questions without `hidden_cases` fall back to the legacy single-run/PASSRATE judging path.
 
 **Response:** `200 OK` — `{"ok": true, "id": 3}`
 

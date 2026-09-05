@@ -11,19 +11,23 @@ USE oj;
 -- ----------------------------------------------------------------------------
 -- questions (columns are read positionally via SELECT *, order matters!)
 -- 0 id | 1 title | 2 rank | 3 desc_text | 4 header | 5 answer |
--- 6 tail | 7 cpu_limit | 8 mem_limit | 9 scope
+-- 6 tail | 7 cpu_limit | 8 mem_limit | 9 scope | 10 mode |
+-- 11 visible_cases | 12 hidden_cases
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS questions (
-    id         INT PRIMARY KEY AUTO_INCREMENT,
-    title      VARCHAR(255) NOT NULL,
-    rank       VARCHAR(16)  NOT NULL,   -- 简单 / 中等 / 困难
-    desc_text  TEXT,
-    header     TEXT,                    -- hidden prologue, prepended before user code
-    answer     TEXT,                    -- starter code shown in the editor
-    tail       TEXT,                    -- hidden test cases (sole judging basis), appended after user code
-    cpu_limit  INT DEFAULT 1,           -- seconds
-    mem_limit  INT DEFAULT 30,          -- MB
-    scope      VARCHAR(16) NOT NULL DEFAULT 'global'   -- 'global' or a group id
+    id            INT PRIMARY KEY AUTO_INCREMENT,
+    title         VARCHAR(255) NOT NULL,
+    rank          VARCHAR(16)  NOT NULL,   -- 简单 / 中等 / 困难
+    desc_text     TEXT,
+    header        TEXT,                    -- 隐藏头文件(函数接口模式), 拼接在用户代码之前
+    answer        TEXT,                    -- 在线编辑器预填代码(函数模式只放函数; ACM 模式含 main)
+    tail          TEXT,                    -- 隐藏附加代码(函数模式放读 stdin 调 answer 的 main 驱动; ACM 留空)
+    cpu_limit     INT DEFAULT 1,           -- seconds
+    mem_limit     INT DEFAULT 30,          -- MB
+    scope         VARCHAR(16) NOT NULL DEFAULT 'global',  -- 'global' or a group id
+    mode          VARCHAR(16) NOT NULL DEFAULT 'acm',     -- 出题模式: 'function' 函数接口 / 'acm' 传统ACM IO
+    visible_cases TEXT,                    -- 显式样例 JSON 数组, 答题页展示, 不判题
+    hidden_cases  TEXT                     -- 隐藏判题用例 JSON 数组({input,expected}), 判题唯一依据
 );
 
 -- ----------------------------------------------------------------------------

@@ -101,9 +101,9 @@ The system is split into two services:
 
 1. The user opens `/question/{id}` and clicks **Submit**.
 2. The browser `POST`s `{"code": ...}` to `/judge/{id}` on `oj_server`.
-3. `oj_server` loads the question from MySQL and builds the full source: `header.cpp` (hidden) + user code + `tail.cpp` (**hidden test cases**, not visible to users).
-4. The load balancer picks the compile server with the **minimum current load** and forwards `{"code", "input", "cpu_limit", "mem_limit"}` to its `/compile_and_run` endpoint.
-5. The compile server compiles with `g++`, runs the binary under `setrlimit` CPU/memory limits, and returns a JSON result (including `pass_count`/`total_count` per the PASSRATE protocol).
+3. `oj_server` loads the question from MySQL and builds the full source: `header` (hidden prologue) + user code + `tail` (hidden code — for `function`-mode questions the hidden `main()` driver that reads input and calls the student's function).
+4. The load balancer picks the compile server with the **minimum current load** and forwards `{"code", "cases", "cpu_limit", "mem_limit"}` to its `/compile_and_run` endpoint (`cases` = the question's hidden `[{input, expected}]` tests, never shown to students).
+5. The compile server compiles once with `g++`, then runs the binary once per hidden case under `setrlimit` CPU/memory limits, comparing normalized stdout with each `expected` value and returning `pass_count`/`total_count`. (Questions without hidden cases fall back to the legacy single-run/PASSRATE path.)
 6. The result is passed back to the browser and rendered **LeetCode-style**: existing error returns plus "Testcases passed: X / Y (percentage)" — individual passing cases are never listed.
 
 ## Directory Layout

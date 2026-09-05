@@ -56,10 +56,13 @@ namespace oj_mysqlmodel
         size_t _cpu_limit;      // 题目的时间要求(S)
         size_t _mem_limit;      // 题目的空间要去(MB)
         std::string _desc;      // 题目的描述
-        std::string _header;    // 题目隐藏的头文件，只有接口模式下有，IO模式为空
-        std::string _answer;    // 题目预设给用户在线编辑器的代码
-        std::string _tail;      // 隐藏(不可见)测试用例: 判题唯一依据, 拼接在用户代码之后
+        std::string _header;    // 隐藏头文件(函数接口模式), 拼接在用户代码之前
+        std::string _answer;    // 在线编辑器预填代码: 函数模式只放待实现函数/类, ACM 模式含 main
+        std::string _tail;      // 隐藏附加代码: 函数模式放读 stdin 调 answer 的 main 驱动, ACM 留空
         std::string _scope = "global";  // 可见范围: "global" 表示全局题, 否则为小组id
+        std::string _mode = "acm";      // 出题模式: 'function' 函数接口 / 'acm' 传统ACM IO
+        std::string _visible_cases;     // 显式样例 JSON 数组字符串(答题页展示, 不判题)
+        std::string _hidden_cases;      // 隐藏判题用例 JSON 数组字符串(判题唯一依据, 不展示)
     };
 
     const std::string database = "oj";
@@ -117,6 +120,10 @@ namespace oj_mysqlmodel
                 q._mem_limit = std::atoll(row[8]);
                 // 兼容旧表(未迁移scope列)的情况
                 q._scope = (cols > 9 && row[9]) ? row[9] : "global";
+                // mode / visible_cases / hidden_cases (旧表缺省)
+                q._mode = (cols > 10 && row[10]) ? row[10] : "acm";
+                q._visible_cases = (cols > 11 && row[11]) ? row[11] : "";
+                q._hidden_cases = (cols > 12 && row[12]) ? row[12] : "";
 
                 out->emplace_back(q);
             }
@@ -178,11 +185,15 @@ namespace oj_mysqlmodel
             std::string answer = Escape(my,q->_answer);
             std::string tail = Escape(my,q->_tail);
             std::string scope = Escape(my,q->_scope);
+            std::string mode = Escape(my,q->_mode);
+            std::string vcases = Escape(my,q->_visible_cases);
+            std::string hcases = Escape(my,q->_hidden_cases);
 
             std::string sql = "insert into " + table +
-                " (title,`rank`,desc_text,header,answer,tail,cpu_limit,mem_limit,scope) values ('" +
+                " (title,`rank`,desc_text,header,answer,tail,cpu_limit,mem_limit,scope,mode,visible_cases,hidden_cases) values ('" +
                 title + "','" + rank + "','" + desc + "','" + header + "','" + answer + "','" + tail + "'," +
-                std::to_string(q->_cpu_limit) + "," + std::to_string(q->_mem_limit) + ",'" + scope + "')";
+                std::to_string(q->_cpu_limit) + "," + std::to_string(q->_mem_limit) + ",'" + scope + "','" + mode +
+                "','" + vcases + "','" + hcases + "')";
 
             if(mysql_query(my,sql.c_str()))
             {
@@ -210,11 +221,15 @@ namespace oj_mysqlmodel
             std::string answer = Escape(my,q._answer);
             std::string tail = Escape(my,q._tail);
             std::string scope = Escape(my,q._scope);
+            std::string mode = Escape(my,q._mode);
+            std::string vcases = Escape(my,q._visible_cases);
+            std::string hcases = Escape(my,q._hidden_cases);
 
             std::string sql = "update " + table + " set title='" + title + "',`rank`='" + rank +
                 "',desc_text='" + desc + "',header='" + header + "',answer='" + answer +
                 "',tail='" + tail + "',cpu_limit=" + std::to_string(q._cpu_limit) +
                 ",mem_limit=" + std::to_string(q._mem_limit) + ",scope='" + scope +
+                "',mode='" + mode + "',visible_cases='" + vcases + "',hidden_cases='" + hcases +
                 "' where id=" + q._id;
 
             if(mysql_query(my,sql.c_str()))

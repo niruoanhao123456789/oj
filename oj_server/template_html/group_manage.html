@@ -328,7 +328,7 @@
             fetch(url, { headers: HDR })
                 .then(function (r) { return r.text(); })
                 .then(function (html) {
-                    if (html.indexOf('id="oj-msg' + '-page"') !== -1) { location.href = url; return; }
+                    if (html.indexOf('id="oj-msg' + '-page"') !== -1) { location.href = '/login'; return; }
                     document.open(); document.write(html); document.close();
                 })
                 .catch(function () { location.href = url; });
@@ -367,9 +367,7 @@
                     location.href = '/login';
                 });
             } else {
-                nav.innerHTML = '<div class="user-area" id="userArea">'
-                    + '<a href="/login" data-fetch="1">登录</a><a href="/register" data-fetch="1" class="reg">注册</a>'
-                    + '</div>';
+                nav.innerHTML = '';
             }
         }
         renderHeader();

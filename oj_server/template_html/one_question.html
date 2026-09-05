@@ -152,6 +152,30 @@
             word-break: break-all;
         }
 
+        /* 显式样例卡片(不判题, 展示给学生参考) */
+        .samples { margin-top: 22px; }
+        .samples h3 {
+            font-size: 15px; font-weight: 700; color: var(--text);
+            margin-bottom: 12px; letter-spacing: 1px;
+        }
+        .samples h3::after { content: ""; display: block; width: 26px; height: 3px; border-radius: 2px; background: var(--accent); margin-top: 6px; }
+        .sample-card {
+            border: 1px solid var(--border); border-radius: 12px;
+            background: #F8FBFE; padding: 12px 14px; margin-bottom: 12px;
+        }
+        .sample-card .sample-title { font-size: 13px; font-weight: 700; color: var(--primary-dark); margin-bottom: 8px; }
+        .sample-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .sample-pair .s-label { font-size: 12px; color: var(--muted); font-weight: 600; margin-bottom: 4px; letter-spacing: 1px; }
+        .sample-pair pre {
+            background: #fff; border: 1px solid var(--border); border-radius: 8px;
+            padding: 8px 10px; margin: 0; white-space: pre-wrap; word-break: break-all;
+            font-family: "Consolas", "Courier New", monospace; font-size: 13px;
+            color: #334E68; line-height: 1.6; max-height: 220px; overflow: auto;
+        }
+        .sample-explain { margin-top: 8px; font-size: 13px; color: var(--muted); }
+        .sample-explain::before { content: "解释："; color: var(--primary-dark); font-weight: 600; }
+        @media (max-width: 520px) { .sample-pair { grid-template-columns: 1fr; } }
+
         .editor-panel h3 {
             display: flex;
             align-items: center;
@@ -268,6 +292,10 @@
         <div class="card question">
             <h2>{{id}}. {{title}} <span class="rank" data-rank="{{rank}}">{{rank}}</span></h2>
             <div class="desc">{{desc}}</div>
+            <div class="samples" id="samplesWrap">
+                <h3>示例</h3>
+                <div id="sampleList"></div>
+            </div>
         </div>
 
         <div class="card editor-panel">
@@ -297,6 +325,36 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.2/theme-tomorrow_night.min.js"></script>
 
     <script type="text/plain" id="preCode">{{pre_code}}</script>
+    <script type="application/json" id="samplesJson">{{samples}}</script>
+
+    <script>
+        // Render visible sample cases (not judged)
+        (function () {
+            var samples = [];
+            try { samples = JSON.parse(document.getElementById('samplesJson').textContent) || []; } catch (e) { samples = []; }
+            var list = document.getElementById('sampleList');
+            var wrap = document.getElementById('samplesWrap');
+            if (!list || !samples.length) { if (wrap) wrap.style.display = 'none'; return; }
+            function esc(s) {
+                return String(s == null ? '' : s)
+                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;');
+            }
+            samples.forEach(function (s, i) {
+                var card = document.createElement('div');
+                card.className = 'sample-card';
+                var title = s.name || ('样例 ' + (i + 1));
+                var html = '<div class="sample-title">' + esc(title) + '</div>'
+                    + '<div class="sample-pair">'
+                    + '<div><div class="s-label">输入</div><pre>' + esc(s.input) + '</pre></div>'
+                    + '<div><div class="s-label">期望输出</div><pre>' + esc(s.expected) + '</pre></div>'
+                    + '</div>';
+                if (s.explain) html += '<div class="sample-explain">' + esc(s.explain) + '</div>';
+                card.innerHTML = html;
+                list.appendChild(card);
+            });
+        })();
+    </script>
 
     <script>
         // Color-code difficulty badge
@@ -346,7 +404,7 @@
             fetch(url, { headers: HDR })
                 .then(function (r) { return r.text(); })
                 .then(function (html) {
-                    if (html.indexOf('id="oj-msg' + '-page"') !== -1) { location.href = url; return; }
+                    if (html.indexOf('id="oj-msg' + '-page"') !== -1) { location.href = '/login'; return; }
                     document.open(); document.write(html); document.close();
                 })
                 .catch(function () { location.href = url; });
@@ -385,9 +443,7 @@
                     location.href = '/login';
                 });
             } else {
-                nav.innerHTML = '<div class="user-area" id="userArea">'
-                    + '<a href="/login" data-fetch="1">登录</a><a href="/register" data-fetch="1" class="reg">注册</a>'
-                    + '</div>';
+                nav.innerHTML = '';
             }
         }
         renderHeader();
